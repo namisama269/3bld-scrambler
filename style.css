@@ -40,8 +40,8 @@ canvas {
     display: block; 
 }
 .button {
-    margin-top: 20px;
-    margin-bottom: 20px;
+    margin-top: 10px;
+    margin-bottom: 10px;
     font-size: 18px;
     padding: 10px 20px;
     background-color: #4570de;
