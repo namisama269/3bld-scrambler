@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3BLD Scrambler</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>3BLD Scrambler</h1>
+
+    <p>Corner scramble type:</p>
+    <div class="multiselect-container" id="cornerCheckboxes"></div>
+
+    <p>Edge scramble type:</p>
+    <div class="multiselect-container" id="edgeCheckboxes"></div>
+
+    <p>Holding cube at
+    <input type="text" id="holdingOrientation" value="" size="4"> 
+    rotation away from WCA orientation</p>
+
+    <div class="textbox-container">
+        <button class="button" id="genScrambleButton" onclick="generateScramble()">Generate Scramble</button>
+    </div>
+
+    <p id="scramble" class="hidden">Scramble</p>
+
+    <canvas id="cubeCanvas" width="1200" height="1200"></canvas>
+
+    <script>
+        const cornerLabels = ["Solved", "Comms", "Parity", "UFR 2T", "Floating 2T", "UFR 3T", "LTCT", "T2C", "Floating 2C"];
+        const cornerCheckboxes = document.getElementById("cornerCheckboxes");
+        cornerLabels.forEach(label => {
+            const checkboxDiv = document.createElement("div");
+            checkboxDiv.classList.add("multiselect-item");
+
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.id = label;
+            checkbox.value = label;
+
+            const checkboxLabel = document.createElement("label");
+            checkboxLabel.htmlFor = label;
+            checkboxLabel.textContent = label;
+
+            checkboxDiv.appendChild(checkbox);
+            checkboxDiv.appendChild(checkboxLabel);
+
+            cornerCheckboxes.appendChild(checkboxDiv);
+        });
+
+        const edgeLabels = ["Solved", "Comms", "UF 2F", "Floating 2F", "LTEF", "F2E", "Floating 2E"];
+        const edgeCheckboxes = document.getElementById("edgeCheckboxes");
+        edgeLabels.forEach(label => {
+            const checkboxDiv = document.createElement("div");
+            checkboxDiv.classList.add("multiselect-item");
+
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.id = label;
+            checkbox.value = label;
+
+            const checkboxLabel = document.createElement("label");
+            checkboxLabel.htmlFor = label;
+            checkboxLabel.textContent = label;
+
+            checkboxDiv.appendChild(checkbox);
+            checkboxDiv.appendChild(checkboxLabel);
+
+            edgeCheckboxes.appendChild(checkboxDiv);
+        });
+        
+        document.addEventListener('keydown', event => {
+            if (event.code === 'Space' 
+                && document.activeElement.id !== 'holdingOrientation' 
+            ) {
+                event.preventDefault();
+                generateScramble();
+            }
+        });
+        
+    </script>
+
+    <script src="cube.js"></script>
+    <script src="solve.js"></script>
+    <script src="comms.js"></script>
+    <script src="alg_jison.js"></script>
+    <script src="alg.js"></script>
+    <script src="bldAlgs.js"></script>
+    <script src="helpers.js"></script>
+    <script src="visualCube.js"></script>
+    <script src="gen.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
