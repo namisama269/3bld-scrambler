@@ -39,11 +39,11 @@
 
             const checkbox = document.createElement("input");
             checkbox.type = "checkbox";
-            checkbox.id = label;
+            checkbox.id = "Corner " + label;
             checkbox.value = label;
 
             const checkboxLabel = document.createElement("label");
-            checkboxLabel.htmlFor = label;
+            checkboxLabel.htmlFor = "Corner " + label;
             checkboxLabel.textContent = label;
 
             checkboxDiv.appendChild(checkbox);
@@ -60,11 +60,11 @@
 
             const checkbox = document.createElement("input");
             checkbox.type = "checkbox";
-            checkbox.id = label;
+            checkbox.id = "Edge " + label;
             checkbox.value = label;
 
             const checkboxLabel = document.createElement("label");
-            checkboxLabel.htmlFor = label;
+            checkboxLabel.htmlFor = "Edge " + label;
             checkboxLabel.textContent = label;
 
             checkboxDiv.appendChild(checkbox);
