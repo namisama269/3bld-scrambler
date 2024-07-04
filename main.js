@@ -11,6 +11,8 @@ let vc = new VisualCube(1200, 1200, 360, -0.523598, -0.209439, 0, 3, 0.08);
 
 const holdingOrientation = document.getElementById('holdingOrientation');
 
+let debugString = "";
+
 document.addEventListener("DOMContentLoaded", function() {
     const savedValue = localStorage.getItem('holdingOrientation');
     if (savedValue !== null) {
@@ -50,8 +52,10 @@ function resetCube() {
 // generate scramble
 
 function generateScramble() {
-    console.log("Generating scramble...");
+    console.log("Generating scramble");
     cube.identity();
+    debugString = "";
+    debugText.classList.add('hidden');
 
     const cornerSelected = [];
     const cornerCheckboxes = document.getElementById("cornerCheckboxes").querySelectorAll('input[type="checkbox"]');;
@@ -72,7 +76,9 @@ function generateScramble() {
     let cornerScrambleType = cornerSelected.length ? cornerSelected[Math.floor(Math.random() * cornerSelected.length)]: "Solved";
     let edgeScrambleType = edgeSelected.length ? edgeSelected[Math.floor(Math.random() * edgeSelected.length)]: "Solved";
     console.log("Corner scramble type: " + cornerScrambleType);
+    debugString += "Corner scramble type: " + cornerScrambleType + "\n";
     console.log("Edge scramble type: " + edgeScrambleType);
+    debugString += "Edge scramble type: " + edgeScrambleType + "\n";
 
     let cornerPieces = [1,2,3,4,5,6,7];
     let edgePieces = [1,2,3,4,5,6,7,8,9,10,11];
@@ -91,6 +97,7 @@ function generateScramble() {
 
         cube.move(generateParityAlg("UF", "UR", "UFR", parityTarget));
         console.log("Corner parity: " + parityTarget);
+        debugString += "Corner parity: " + parityTarget + "\n";
     }
     else if (cornerScrambleType == "UFR 2T") {
         let twistI = Math.floor(Math.random() * cornerPieces.length);
@@ -101,6 +108,7 @@ function generateScramble() {
 
         cube.move(invertMoves(generateCOAlg([twist])));
         console.log("UFR 2-twist: " + twist);
+        debugString += "UFR 2-twist: " + twist + "\n";
     }
     else if (cornerScrambleType == "Floating 2T") {
         let shuffledCornerPieces = shuffleArray(cornerPieces);
@@ -113,6 +121,7 @@ function generateScramble() {
         cube.move(invertMoves(generateCOAlg([twist1])));
         cube.move(invertMoves(generateCOAlg([twist2])));
         console.log("Floating 2-twist: " + twist1 + " " + twist2);
+        debugString += "Floating 2-twist: " + twist1 + " " + twist2 + "\n";
     }
     else if (cornerScrambleType == "UFR 3T") {
         let shuffledCornerPieces = shuffleArray(cornerPieces);
@@ -124,6 +133,7 @@ function generateScramble() {
         cube.move(invertMoves(generateCOAlg([twist1])));
         cube.move(invertMoves(generateCOAlg([twist2])));
         console.log("UFR 3-twist: " + twist1 + " " + twist2);
+        debugString += "UFR 3-twist: " + twist1 + " " + twist2 + "\n";
     }
     else if (cornerScrambleType == "LTCT") {
         let shuffledCornerPieces = shuffleArray(cornerPieces);
@@ -136,6 +146,7 @@ function generateScramble() {
         cube.move(invertMoves(generateCOAlg([twist])));
         cube.move(generateParityAlg("UF", "UR", "UFR", parity));
         console.log("LTCT: " + parity + "[" + twist + "]");
+        debugString += "LTCT: " + parity + "[" + twist + "]" + "\n";
     }
     else if (cornerScrambleType == "T2C") {
         let shuffledCornerPieces = shuffleArray(cornerPieces);
@@ -151,6 +162,7 @@ function generateScramble() {
         cube.move(generateParityAlg("UF", "UR", "UFR", t3));
         cube.move(generate3BLDCorner3CycleAlg("UFR", t2, t1));
         console.log("T2C: " + t1 + " " + t2 + " " + t3);
+        debugString += "T2C: " + t1 + " " + t2 + " " + t3 + "\n";
     }
     else if (cornerScrambleType == "Floating 2C") {
         let shuffledCornerPieces = shuffleArray(cornerPieces);
@@ -164,10 +176,12 @@ function generateScramble() {
         cube.move(generateParityAlg("UF", "UR", "UFR", t1));
         cube.move(generate3BLDCorner3CycleAlg("UFR", t2, t1));
         console.log("Floating 2C: " + t1 + " " + t2);
+        debugString += "Floating 2C: " + t1 + " " + t2 + "\n";
     }
 
     let cornerComms = generateCommTargets(cornerPieces, "c", solveCornerIfOdd);
     console.log("Corner comms: " + (cornerComms.length ? cornerComms.join(" ") : "None") + " (" + cornerComms.length + ")");
+    debugString += "Corner comms: " + (cornerComms.length ? cornerComms.join(" ") : "None") + " (" + cornerComms.length + ")" + "\n";
     for (let i = cornerComms.length - 1; i > 0; i -= 2) {
         cube.move(generate3BLDCorner3CycleAlg("UFR", cornerComms[i], cornerComms[i-1]));
     }
@@ -183,6 +197,7 @@ function generateScramble() {
 
         cube.move(generateEOAlg([flip]));
         console.log("UF 2-flip: " + flip);
+        debugString += "UF 2-flip: " + flip + "\n";
     }
     else if (edgeScrambleType == "Floating 2F") {
         let shuffledEdgePieces = shuffleArray(edgePieces);
@@ -195,6 +210,7 @@ function generateScramble() {
         cube.move(generateEOAlg([flip1]));
         cube.move(generateEOAlg([flip2]));
         console.log("Floating 2-flip: " + flip1 + " " + flip2);
+        debugString += "Floating 2-flip: " + flip1 + " " + flip2 + "\n";
     }
     else if (edgeScrambleType == "LTEF") {
         // do not include comms from UR
@@ -211,6 +227,7 @@ function generateScramble() {
         cube.move(generate3BLDEdge3CycleAlg("UF", "UR", ef));
         cube.move(generate3BLDEdge3CycleAlg("UF", ef_, lt));
         console.log("LTEF: " + lt + "[" + ef + "]");
+        debugString += "LTEF: " + lt + "[" + ef + "]" + "\n";
     }
     else if (edgeScrambleType == "F2E") {
         // do not include comms from UR
@@ -227,6 +244,7 @@ function generateScramble() {
         cube.move(generate3BLDEdge3CycleAlg("UF", "UR", t3));
         cube.move(generate3BLDEdge3CycleAlg("UF", t2, t1));
         console.log("F2E: " + t1 + " " + t2 + " " + t3);
+        debugString += "F2E: " + t1 + " " + t2 + " " + t3 + "\n";
     }
     else if (edgeScrambleType == "Floating 2E") {
         // do not include comms from UR
@@ -242,10 +260,12 @@ function generateScramble() {
         cube.move(generate3BLDEdge3CycleAlg("UF", "UR", t1));
         cube.move(generate3BLDEdge3CycleAlg("UF", t2, t1));
         console.log("Floating 2E: " + t1 + " " + t2);
+        debugString += "Floating 2E: " + t1 + " " + t2 + "\n";
     }
 
     let edgeComms = generateCommTargets(edgePieces, "e", solveEdgeIfOdd);
     console.log("Edge comms: " + (edgeComms.length ? edgeComms.join(" ") : "None") + " (" + edgeComms.length + ")");
+    debugString += "Edge comms: " + (edgeComms.length ? edgeComms.join(" ") : "None") + " (" + edgeComms.length + ")" + "\n";
     for (let i = edgeComms.length - 1; i > 0; i -= 2) {
         cube.move(generate3BLDEdge3CycleAlg("UF", edgeComms[i], edgeComms[i-1]));
     }
@@ -263,4 +283,11 @@ function generateScramble() {
 
     vc.cubeString = cube.asString();
     vc.drawCube(ctx);
+}
+
+function debug() {
+    const debugText = document.getElementById('debugText');
+    debugText.textContent = debugString;
+    debugText.classList.remove('hidden');
+    console.log("Debug on")
 }

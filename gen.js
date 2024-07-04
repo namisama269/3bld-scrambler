@@ -72,9 +72,10 @@ function generateCommTargets(indices, type, solvePieceIfOdd) {
 
             let newOris = [];
             for (let i = 0; i < oris.length; ++i) {
-                if (oris[i] != targets[breakI]) {
-                    newOris.push(oris[i]);
-                }
+                newOris.push(oris[i]);
+                // if (oris[i] != targets[breakI]) {
+                //     newOris.push(oris[i]);
+                // }
             }
 
             let breakJ = Math.floor(Math.random() * newOris.length);

@@ -247,6 +247,11 @@ function generateParityAlg(edge1, edge2, corner1, corner2) {
             alg += COMMS["UFR"][corner2]["UBR"];
         }
         
+        if (corner2 == "RUB" || corner2 == "BUR") {
+            alg += " ";
+            alg += UFR_TWISTS[corner2];
+        }
+
         alg += " " + J_PERM;
         // console.log(alg);
         return alg;

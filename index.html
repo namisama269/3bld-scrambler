@@ -20,12 +20,15 @@
     rotation away from WCA orientation</p>
 
     <div class="textbox-container">
-        <button class="button" id="genScrambleButton" onclick="generateScramble()">Generate Scramble</button>
+        <button class="button button-primary" id="genScrambleButton" onclick="generateScramble()">Generate Scramble</button>
+        <button class="button button-secondary" id="debugButton" onclick="debug()">Debug</button>
     </div>
 
     <p id="scramble" class="hidden">Scramble</p>
 
     <canvas id="cubeCanvas" width="1200" height="1200"></canvas>
+
+    <pre id="debugText" class="hidden">Debug</pre>
 
     <script>
         const cornerLabels = ["Solved", "Comms", "Parity", "UFR 2T", "Floating 2T", "UFR 3T", "LTCT", "T2C", "Floating 2C"];

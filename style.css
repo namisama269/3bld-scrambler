@@ -50,6 +50,14 @@ canvas {
     border-radius: 5px;
     cursor: pointer;
 }
+.button-primary {
+    background-color: #4570de;
+    color: white;
+}
+.button-secondary {
+    background-color: #e488fd;
+    color: white;
+}
 .checkbox-container {
     margin-top: 10px;
 }
@@ -57,7 +65,9 @@ canvas {
     font-size: 18px;
 }
 .textbox-container {
+    display: flex;
     margin-top: 7px;
+    gap: 10px;
 }
 .textbox-container input {
     padding: 10px;
@@ -66,4 +76,9 @@ canvas {
 }
 .hidden {
     display: none;
+}
+pre {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 18px;
+    line-height: 1.5;
 }
