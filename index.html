@@ -4,89 +4,770 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3BLD Scrambler</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>3BLD Scrambler</h1>
+    <div class="container-fluid py-4">
+        <h1 class="mb-4">3BLD Scrambler</h1>
 
-    <p>Corner scramble type:</p>
-    <div class="multiselect-container" id="cornerCheckboxes"></div>
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-2 mb-md-0">
+                        <h5 class="card-title">Corner buffer:</h5>
+                        <select class="form-select" id="cornerBufferSelect" disabled style="background-color: #e9ecef; color: #6c757d; cursor: not-allowed;"></select>
+                    </div>
+                    <div class="col-md-6">
+                        <h5 class="card-title">Edge buffer:</h5>
+                        <select class="form-select" id="edgeBufferSelect"></select>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-    <p>Edge scramble type:</p>
-    <div class="multiselect-container" id="edgeCheckboxes"></div>
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Corner scramble type:</h5>
+                <select class="form-select" id="cornerScrambleSelect"></select>
 
-    <p>Holding cube at
-    <input type="text" id="holdingOrientation" value="" size="4"> 
-    rotation away from WCA orientation</p>
+                <!-- Parity target selection -->
+                <div id="paritySettings" class="mt-3 parity-settings hidden">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0"><strong>Parity Target Selection</strong></h6>
+                        <div>
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="selectAllParityTargets()">Select All</button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="unselectAllParityTargets()">Unselect All</button>
+                        </div>
+                    </div>
+                    <div class="multiselect-container" id="parityTargetCheckboxes"></div>
+                </div>
 
-    <div class="textbox-container">
-        <button class="button button-primary" id="genScrambleButton" onclick="generateScramble()">Generate Scramble</button>
-        <button class="button button-secondary" id="debugButton" onclick="debug()">Debug</button>
+                <!-- LTCT Settings -->
+                <div id="ltctSettings" class="mt-3 parity-settings hidden">
+                    <!-- Target selection mode toggle -->
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Target selection mode:</strong></label>
+                        <div class="btn-group" role="group">
+                            <input type="radio" class="btn-check" name="ltctMode" id="ltctModePieces" value="pieces" checked>
+                            <label class="btn btn-outline-primary" for="ltctModePieces">Pieces</label>
+                            <input type="radio" class="btn-check" name="ltctMode" id="ltctModeStickers" value="stickers">
+                            <label class="btn btn-outline-primary" for="ltctModeStickers">Stickers</label>
+                        </div>
+                    </div>
+
+                    <!-- Stickers mode: Parity target selection -->
+                    <div id="ltctStickersParitySettings" class="parity-settings hidden">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><strong>LTCT Parity Target Selection</strong></h6>
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary me-1" onclick="selectAllLTCTParityTargets()">Select All</button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="unselectAllLTCTParityTargets()">Unselect All</button>
+                            </div>
+                        </div>
+                        <div class="multiselect-container" id="ltctParityTargetCheckboxes"></div>
+                    </div>
+
+                    <!-- Stickers mode: Twist target selection -->
+                    <div id="ltctStickersTwistSettings" class="mt-3 parity-settings hidden">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><strong>LTCT Twist Target Selection</strong></h6>
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary me-1" onclick="selectAllLTCTTwistTargets()">Select All</button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="unselectAllLTCTTwistTargets()">Unselect All</button>
+                            </div>
+                        </div>
+                        <div class="multiselect-container" id="ltctTwistTargetCheckboxes"></div>
+                    </div>
+
+                    <!-- Pieces mode: Parity piece selection (U/D stickers only) -->
+                    <div id="ltctPiecesParitySettings" class="parity-settings">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><strong>LTCT Parity Piece Selection</strong></h6>
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary me-1" onclick="selectAllLTCT2ParityTargets()">Select All</button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="unselectAllLTCT2ParityTargets()">Unselect All</button>
+                            </div>
+                        </div>
+                        <div class="multiselect-container" id="ltct2ParityTargetCheckboxes"></div>
+                    </div>
+
+                    <!-- Pieces mode: Twist piece selection (U/D stickers only) -->
+                    <div id="ltctPiecesTwistSettings" class="mt-3 parity-settings">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><strong>LTCT Twist Piece Selection</strong></h6>
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary me-1" onclick="selectAllLTCT2TwistTargets()">Select All</button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="unselectAllLTCT2TwistTargets()">Unselect All</button>
+                            </div>
+                        </div>
+                        <div class="multiselect-container" id="ltct2TwistTargetCheckboxes"></div>
+                    </div>
+                </div>
+
+                <!-- T2C Settings -->
+                <div id="t2cSettings" class="mt-3 parity-settings hidden">
+                    <!-- First piece selection -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><strong>T2C First Piece Selection</strong></h6>
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary me-1" onclick="selectAllT2CFirstPieces()">Select All</button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="unselectAllT2CFirstPieces()">Unselect All</button>
+                            </div>
+                        </div>
+                        <div class="multiselect-container" id="t2cFirstPieceCheckboxes"></div>
+                    </div>
+
+                    <!-- Only select later buffers toggle -->
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="t2cOnlyLaterBuffers">
+                        <label class="form-check-label" for="t2cOnlyLaterBuffers">
+                            <strong>Only select later buffers</strong>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Edge scramble type:</h5>
+                <select class="form-select" id="edgeScrambleSelect"></select>
+
+                <!-- F2E Settings -->
+                <div id="f2eSettings" class="mt-3 parity-settings hidden">
+                    <!-- First piece selection -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><strong>F2E First Piece Selection</strong></h6>
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary me-1" onclick="selectAllF2EFirstPieces()">Select All</button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="unselectAllF2EFirstPieces()">Unselect All</button>
+                            </div>
+                        </div>
+                        <div class="multiselect-container" id="f2eFirstPieceCheckboxes"></div>
+                    </div>
+
+                    <!-- Only select later buffers toggle -->
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="f2eOnlyLaterBuffers">
+                        <label class="form-check-label" for="f2eOnlyLaterBuffers">
+                            <strong>Only select later buffers</strong>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <p class="mb-2">Holding cube at
+                <input type="text" class="form-control d-inline-block" id="holdingOrientation" value="" size="4" style="width: 80px;">
+                rotation away from WCA orientation</p>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <label for="numScrambles" class="form-label">Number of scrambles:</label>
+                <input type="number" class="form-control" id="numScrambles" min="1" max="100" value="1" style="max-width: 150px;">
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 mb-3">
+            <button class="btn btn-primary" id="genScrambleButton" onclick="generateMultipleScrambles()">Generate Scramble</button>
+            <button class="btn btn-secondary" id="genBulkScrambleButton" onclick="generateBulkScrambles()">Generate Bulk</button>
+            <button class="btn btn-info" id="debugButton" onclick="debug()">Debug</button>
+        </div>
+
+        <div id="scramble" class="alert alert-success hidden" role="alert">Scramble</div>
+        <div id="scrambleList" class="hidden"></div>
+
+        <canvas id="cubeCanvas" width="1200" height="1200" class="mb-3"></canvas>
+
+        <pre id="debugText" class="alert alert-info hidden">Debug</pre>
     </div>
 
-    <p id="scramble" class="hidden">Scramble</p>
-
-    <canvas id="cubeCanvas" width="1200" height="1200"></canvas>
-
-    <pre id="debugText" class="hidden">Debug</pre>
-
     <script>
-        const cornerLabels = ["Solved", "Comms", "Parity", "UFR 2T", "Floating 2T", "UFR 3T", "LTCT", "T2C", "Floating 2C"];
-        const cornerCheckboxes = document.getElementById("cornerCheckboxes");
-        cornerLabels.forEach(label => {
-            const checkboxDiv = document.createElement("div");
-            checkboxDiv.classList.add("multiselect-item");
+        // All corner pieces with their orientations
+        const ALL_CORNERS = [
+            ["UFR", "RUF", "FUR"],
+            ["UFL", "FUL", "LUF"],
+            ["UBR", "BUR", "RUB"],
+            ["UBL", "LUB", "BUL"],
+            ["DFR", "FDR", "RDF"],
+            ["DFL", "LDF", "FDL"],
+            ["DBR", "RDB", "BDR"],
+            ["DBL", "BDL", "LDB"]
+        ];
 
-            const checkbox = document.createElement("input");
-            checkbox.type = "checkbox";
-            checkbox.id = "Corner " + label;
-            checkbox.value = label;
-
-            const checkboxLabel = document.createElement("label");
-            checkboxLabel.htmlFor = "Corner " + label;
-            checkboxLabel.textContent = label;
-
-            checkboxDiv.appendChild(checkbox);
-            checkboxDiv.appendChild(checkboxLabel);
-
-            cornerCheckboxes.appendChild(checkboxDiv);
+        // Populate corner buffer selector
+        // Note: Currently only UFR buffer is fully supported due to algorithm table limitations
+        const cornerBufferSelect = document.getElementById("cornerBufferSelect");
+        ALL_CORNERS.forEach(corner => {
+            const option = document.createElement("option");
+            option.value = corner[0]; // Use first orientation as canonical
+            option.textContent = corner[0];
+            // Disable non-UFR options for now
+            if (corner[0] !== "UFR") {
+                option.disabled = true;
+                option.textContent = corner[0] + " (not yet supported)";
+            }
+            cornerBufferSelect.appendChild(option);
         });
+
+        // Set default to UFR
+        cornerBufferSelect.value = "UFR";
+
+        // Add event listener to update targets when buffer changes
+        cornerBufferSelect.addEventListener("change", function() {
+            updateTargetCheckboxes();
+            updateCornerScrambleLabels();
+            saveDropdownState('cornerBuffer', cornerBufferSelect.value);
+        });
+
+        // Populate edge buffer selector
+        const edgeBufferSelect = document.getElementById("edgeBufferSelect");
+        const edgeBufferOptions = ["UF", "UR"];
+        edgeBufferOptions.forEach(buffer => {
+            const option = document.createElement("option");
+            option.value = buffer;
+            option.textContent = buffer;
+            edgeBufferSelect.appendChild(option);
+        });
+
+        // Set default to UF
+        edgeBufferSelect.value = "UF";
+
+        // Add event listener to save edge buffer selection
+        edgeBufferSelect.addEventListener("change", function() {
+            saveDropdownState('edgeBuffer', edgeBufferSelect.value);
+        });
+
+        const cornerScrambleSelect = document.getElementById("cornerScrambleSelect");
+
+        // Function to update corner scramble type labels based on buffer
+        function updateCornerScrambleLabels() {
+            const buffer = cornerBufferSelect.value;
+            const savedType = cornerScrambleSelect.value;
+
+            cornerScrambleSelect.innerHTML = '';
+
+            const cornerLabels = [
+                "Solved",
+                "Comms",
+                "Parity",
+                "2-twist",
+                "Floating 2T",
+                "3-twist",
+                "LTCT",
+                "T2C",
+                "Floating 2C"
+            ];
+
+            cornerLabels.forEach(label => {
+                const option = document.createElement("option");
+                option.value = label;
+                option.textContent = label;
+                cornerScrambleSelect.appendChild(option);
+            });
+
+            // Restore selection if it still exists
+            if (savedType && Array.from(cornerScrambleSelect.options).some(opt => opt.value === savedType)) {
+                cornerScrambleSelect.value = savedType;
+            }
+        }
+
+        // Initial population
+        updateCornerScrambleLabels();
+
+        // Add event listener to show/hide parity settings and save to localStorage
+        cornerScrambleSelect.addEventListener("change", function() {
+            updateParitySettingsVisibility();
+            saveDropdownState('cornerScrambleType', cornerScrambleSelect.value);
+        });
+
+        // Function to get all targets excluding buffer
+        function getTargetsExcludingBuffer(buffer) {
+            const targets = [];
+            ALL_CORNERS.forEach(corner => {
+                if (corner[0] !== buffer) {
+                    corner.forEach(orientation => {
+                        targets.push(orientation);
+                    });
+                }
+            });
+            return targets;
+        }
+
+        // Function to get twist targets (excluding buffer and orientations starting with U or D)
+        function getTwistTargets(buffer) {
+            const targets = [];
+            ALL_CORNERS.forEach(corner => {
+                if (corner[0] !== buffer) {
+                    corner.forEach(orientation => {
+                        if (!orientation.startsWith('U') && !orientation.startsWith('D')) {
+                            targets.push(orientation);
+                        }
+                    });
+                }
+            });
+            return targets;
+        }
+
+        // Function to get U/D sticker targets only (first orientation of each piece, excluding buffer)
+        function getUDStickerTargets(buffer) {
+            const targets = [];
+            ALL_CORNERS.forEach(corner => {
+                if (corner[0] !== buffer) {
+                    targets.push(corner[0]); // Only the first orientation (U/D sticker)
+                }
+            });
+            return targets;
+        }
+
+        // Function to generate checkboxes for a container
+        function generateCheckboxes(containerId, targets, classPrefix, savedStates = {}) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = ''; // Clear existing checkboxes
+
+            targets.forEach(target => {
+                const checkboxDiv = document.createElement("div");
+                checkboxDiv.classList.add("form-check", "form-check-inline");
+
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.classList.add("form-check-input", classPrefix);
+                checkbox.id = classPrefix.replace('-', '') + "Target " + target;
+                checkbox.value = target;
+                checkbox.checked = savedStates[target] !== undefined ? savedStates[target] : true;
+
+                // Add event listener to save to localStorage
+                checkbox.addEventListener("change", function() {
+                    saveCheckboxState(checkbox.id, checkbox.checked);
+                });
+
+                const checkboxLabel = document.createElement("label");
+                checkboxLabel.classList.add("form-check-label");
+                checkboxLabel.htmlFor = checkbox.id;
+                checkboxLabel.textContent = target;
+
+                checkboxDiv.appendChild(checkbox);
+                checkboxDiv.appendChild(checkboxLabel);
+
+                container.appendChild(checkboxDiv);
+            });
+        }
+
+        // Function to update all target checkboxes based on selected buffer
+        function updateTargetCheckboxes() {
+            const buffer = cornerBufferSelect.value;
+
+            // Save current states before regenerating
+            const parityStates = {};
+            const ltctParityStates = {};
+            const ltctTwistStates = {};
+            const ltct2ParityStates = {};
+            const ltct2TwistStates = {};
+
+            document.querySelectorAll('.parity-target').forEach(cb => {
+                parityStates[cb.value] = cb.checked;
+            });
+            document.querySelectorAll('.ltct-parity-target').forEach(cb => {
+                ltctParityStates[cb.value] = cb.checked;
+            });
+            document.querySelectorAll('.ltct-twist-target').forEach(cb => {
+                ltctTwistStates[cb.value] = cb.checked;
+            });
+            document.querySelectorAll('.ltct2-parity-target').forEach(cb => {
+                ltct2ParityStates[cb.value] = cb.checked;
+            });
+            document.querySelectorAll('.ltct2-twist-target').forEach(cb => {
+                ltct2TwistStates[cb.value] = cb.checked;
+            });
+
+            // Generate new checkboxes
+            const allTargets = getTargetsExcludingBuffer(buffer);
+            const twistTargets = getTwistTargets(buffer);
+            const udStickerTargets = getUDStickerTargets(buffer);
+
+            generateCheckboxes('parityTargetCheckboxes', allTargets, 'parity-target', parityStates);
+            generateCheckboxes('ltctParityTargetCheckboxes', allTargets, 'ltct-parity-target', ltctParityStates);
+            generateCheckboxes('ltctTwistTargetCheckboxes', twistTargets, 'ltct-twist-target', ltctTwistStates);
+            generateCheckboxes('ltct2ParityTargetCheckboxes', udStickerTargets, 'ltct2-parity-target', ltct2ParityStates);
+            generateCheckboxes('ltct2TwistTargetCheckboxes', udStickerTargets, 'ltct2-twist-target', ltct2TwistStates);
+        }
+
+        // Initial generation of checkboxes
+        updateTargetCheckboxes();
+
+        // Function to show/hide parity settings based on dropdown selection
+        function updateParitySettingsVisibility() {
+            const selectedCornerType = cornerScrambleSelect.value;
+
+            const paritySettings = document.getElementById("paritySettings");
+            const ltctSettings = document.getElementById("ltctSettings");
+            const t2cSettings = document.getElementById("t2cSettings");
+
+            // Hide all settings by default
+            paritySettings.classList.add("hidden");
+            ltctSettings.classList.add("hidden");
+            t2cSettings.classList.add("hidden");
+
+            // Show relevant settings based on selection
+            if (selectedCornerType === "Parity") {
+                paritySettings.classList.remove("hidden");
+            } else if (selectedCornerType === "LTCT") {
+                ltctSettings.classList.remove("hidden");
+                updateLTCTModeVisibility();
+            } else if (selectedCornerType === "T2C" || selectedCornerType === "Floating 2C") {
+                t2cSettings.classList.remove("hidden");
+            }
+        }
+
+        // Function to update LTCT mode sub-settings visibility
+        function updateLTCTModeVisibility() {
+            const mode = document.querySelector('input[name="ltctMode"]:checked').value;
+
+            const stickersParitySettings = document.getElementById("ltctStickersParitySettings");
+            const stickersTwistSettings = document.getElementById("ltctStickersTwistSettings");
+            const piecesParitySettings = document.getElementById("ltctPiecesParitySettings");
+            const piecesTwistSettings = document.getElementById("ltctPiecesTwistSettings");
+
+            if (mode === "stickers") {
+                stickersParitySettings.classList.remove("hidden");
+                stickersTwistSettings.classList.remove("hidden");
+                piecesParitySettings.classList.add("hidden");
+                piecesTwistSettings.classList.add("hidden");
+            } else {
+                stickersParitySettings.classList.add("hidden");
+                stickersTwistSettings.classList.add("hidden");
+                piecesParitySettings.classList.remove("hidden");
+                piecesTwistSettings.classList.remove("hidden");
+            }
+        }
+
+        // Add event listeners for LTCT mode toggle
+        document.getElementById("ltctModePieces").addEventListener("change", function() {
+            updateLTCTModeVisibility();
+            saveDropdownState('ltctMode', 'pieces');
+        });
+        document.getElementById("ltctModeStickers").addEventListener("change", function() {
+            updateLTCTModeVisibility();
+            saveDropdownState('ltctMode', 'stickers');
+        });
+
+        // Select/Unselect all functions for parity targets
+        function selectAllParityTargets() {
+            document.querySelectorAll('.parity-target').forEach(checkbox => {
+                checkbox.checked = true;
+                saveCheckboxState(checkbox.id, true);
+            });
+        }
+
+        function unselectAllParityTargets() {
+            document.querySelectorAll('.parity-target').forEach(checkbox => {
+                checkbox.checked = false;
+                saveCheckboxState(checkbox.id, false);
+            });
+        }
+
+        function selectAllLTCTParityTargets() {
+            document.querySelectorAll('.ltct-parity-target').forEach(checkbox => {
+                checkbox.checked = true;
+                saveCheckboxState(checkbox.id, true);
+            });
+        }
+
+        function unselectAllLTCTParityTargets() {
+            document.querySelectorAll('.ltct-parity-target').forEach(checkbox => {
+                checkbox.checked = false;
+                saveCheckboxState(checkbox.id, false);
+            });
+        }
+
+        function selectAllLTCTTwistTargets() {
+            document.querySelectorAll('.ltct-twist-target').forEach(checkbox => {
+                checkbox.checked = true;
+                saveCheckboxState(checkbox.id, true);
+            });
+        }
+
+        function unselectAllLTCTTwistTargets() {
+            document.querySelectorAll('.ltct-twist-target').forEach(checkbox => {
+                checkbox.checked = false;
+                saveCheckboxState(checkbox.id, false);
+            });
+        }
+
+        function selectAllLTCT2ParityTargets() {
+            document.querySelectorAll('.ltct2-parity-target').forEach(checkbox => {
+                checkbox.checked = true;
+                saveCheckboxState(checkbox.id, true);
+            });
+        }
+
+        function unselectAllLTCT2ParityTargets() {
+            document.querySelectorAll('.ltct2-parity-target').forEach(checkbox => {
+                checkbox.checked = false;
+                saveCheckboxState(checkbox.id, false);
+            });
+        }
+
+        function selectAllLTCT2TwistTargets() {
+            document.querySelectorAll('.ltct2-twist-target').forEach(checkbox => {
+                checkbox.checked = true;
+                saveCheckboxState(checkbox.id, true);
+            });
+        }
+
+        function unselectAllLTCT2TwistTargets() {
+            document.querySelectorAll('.ltct2-twist-target').forEach(checkbox => {
+                checkbox.checked = false;
+                saveCheckboxState(checkbox.id, false);
+            });
+        }
+
+        // T2C first piece checkboxes (hardcoded pieces)
+        const T2C_FIRST_PIECES = ["UFL", "UBR", "UBL", "DFR", "DFL", "DBL"];
+
+        function generateT2CCheckboxes() {
+            const container = document.getElementById('t2cFirstPieceCheckboxes');
+            container.innerHTML = '';
+
+            T2C_FIRST_PIECES.forEach(piece => {
+                const checkboxDiv = document.createElement("div");
+                checkboxDiv.classList.add("form-check", "form-check-inline");
+
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.classList.add("form-check-input", "t2c-first-piece");
+                checkbox.id = "t2cFirstPiece" + piece;
+                checkbox.value = piece;
+                checkbox.checked = loadCheckboxState(checkbox.id, true);
+
+                checkbox.addEventListener("change", function() {
+                    saveCheckboxState(checkbox.id, checkbox.checked);
+                });
+
+                const checkboxLabel = document.createElement("label");
+                checkboxLabel.classList.add("form-check-label");
+                checkboxLabel.htmlFor = checkbox.id;
+                checkboxLabel.textContent = piece;
+
+                checkboxDiv.appendChild(checkbox);
+                checkboxDiv.appendChild(checkboxLabel);
+                container.appendChild(checkboxDiv);
+            });
+
+            // Load and set the "Only select later buffers" toggle
+            const laterBuffersToggle = document.getElementById('t2cOnlyLaterBuffers');
+            laterBuffersToggle.checked = loadCheckboxState('t2cOnlyLaterBuffers', false);
+            laterBuffersToggle.addEventListener("change", function() {
+                saveCheckboxState('t2cOnlyLaterBuffers', laterBuffersToggle.checked);
+            });
+        }
+
+        function selectAllT2CFirstPieces() {
+            document.querySelectorAll('.t2c-first-piece').forEach(checkbox => {
+                checkbox.checked = true;
+                saveCheckboxState(checkbox.id, true);
+            });
+        }
+
+        function unselectAllT2CFirstPieces() {
+            document.querySelectorAll('.t2c-first-piece').forEach(checkbox => {
+                checkbox.checked = false;
+                saveCheckboxState(checkbox.id, false);
+            });
+        }
+
+        // Initialize T2C checkboxes
+        generateT2CCheckboxes();
+
+        // F2E first piece checkboxes (hardcoded edge pieces, excluding UF buffer and UR parity edge)
+        const F2E_FIRST_PIECES = ["UB", "UL", "FR", "FL", "DF", "DR", "DL", "DB", "BR", "BL"];
+
+        // All edge pieces for reference
+        const ALL_EDGES = [
+            ["UF", "FU"],
+            ["UB", "BU"],
+            ["UR", "RU"],
+            ["UL", "LU"],
+            ["FR", "RF"],
+            ["FL", "LF"],
+            ["DF", "FD"],
+            ["DB", "BD"],
+            ["DR", "RD"],
+            ["DL", "LD"],
+            ["BR", "RB"],
+            ["BL", "LB"]
+        ];
+
+        function generateF2ECheckboxes() {
+            const container = document.getElementById('f2eFirstPieceCheckboxes');
+            container.innerHTML = '';
+
+            F2E_FIRST_PIECES.forEach(piece => {
+                const checkboxDiv = document.createElement("div");
+                checkboxDiv.classList.add("form-check", "form-check-inline");
+
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.classList.add("form-check-input", "f2e-first-piece");
+                checkbox.id = "f2eFirstPiece" + piece;
+                checkbox.value = piece;
+                checkbox.checked = loadCheckboxState(checkbox.id, true);
+
+                checkbox.addEventListener("change", function() {
+                    saveCheckboxState(checkbox.id, checkbox.checked);
+                });
+
+                const checkboxLabel = document.createElement("label");
+                checkboxLabel.classList.add("form-check-label");
+                checkboxLabel.htmlFor = checkbox.id;
+                checkboxLabel.textContent = piece;
+
+                checkboxDiv.appendChild(checkbox);
+                checkboxDiv.appendChild(checkboxLabel);
+                container.appendChild(checkboxDiv);
+            });
+
+            // Load and set the "Only select later buffers" toggle
+            const laterBuffersToggle = document.getElementById('f2eOnlyLaterBuffers');
+            laterBuffersToggle.checked = loadCheckboxState('f2eOnlyLaterBuffers', false);
+            laterBuffersToggle.addEventListener("change", function() {
+                saveCheckboxState('f2eOnlyLaterBuffers', laterBuffersToggle.checked);
+            });
+        }
+
+        function selectAllF2EFirstPieces() {
+            document.querySelectorAll('.f2e-first-piece').forEach(checkbox => {
+                checkbox.checked = true;
+                saveCheckboxState(checkbox.id, true);
+            });
+        }
+
+        function unselectAllF2EFirstPieces() {
+            document.querySelectorAll('.f2e-first-piece').forEach(checkbox => {
+                checkbox.checked = false;
+                saveCheckboxState(checkbox.id, false);
+            });
+        }
+
+        // Initialize F2E checkboxes
+        generateF2ECheckboxes();
+
+        // Function to show/hide F2E settings based on edge dropdown selection
+        function updateEdgeSettingsVisibility() {
+            const selectedEdgeType = edgeScrambleSelect.value;
+            const f2eSettings = document.getElementById("f2eSettings");
+
+            // Hide all settings by default
+            f2eSettings.classList.add("hidden");
+
+            // Show F2E settings for F2E or Floating 2E
+            if (selectedEdgeType === "F2E" || selectedEdgeType === "Floating 2E") {
+                f2eSettings.classList.remove("hidden");
+            }
+        }
 
         const edgeLabels = ["Solved", "Comms", "UF 2F", "Floating 2F", "LTEF", "F2E", "Floating 2E"];
-        const edgeCheckboxes = document.getElementById("edgeCheckboxes");
+        const edgeScrambleSelect = document.getElementById("edgeScrambleSelect");
+
         edgeLabels.forEach(label => {
-            const checkboxDiv = document.createElement("div");
-            checkboxDiv.classList.add("multiselect-item");
+            const option = document.createElement("option");
+            option.value = label;
+            option.textContent = label;
+            edgeScrambleSelect.appendChild(option);
+        });
 
-            const checkbox = document.createElement("input");
-            checkbox.type = "checkbox";
-            checkbox.id = "Edge " + label;
-            checkbox.value = label;
-
-            const checkboxLabel = document.createElement("label");
-            checkboxLabel.htmlFor = "Edge " + label;
-            checkboxLabel.textContent = label;
-
-            checkboxDiv.appendChild(checkbox);
-            checkboxDiv.appendChild(checkboxLabel);
-
-            edgeCheckboxes.appendChild(checkboxDiv);
+        // Add event listener to save to localStorage and update visibility
+        edgeScrambleSelect.addEventListener("change", function() {
+            updateEdgeSettingsVisibility();
+            saveDropdownState('edgeScrambleType', edgeScrambleSelect.value);
         });
         
+        // localStorage helper functions
+        function saveCheckboxState(checkboxId, isChecked) {
+            localStorage.setItem('checkbox_' + checkboxId, isChecked ? 'true' : 'false');
+        }
+
+        function loadCheckboxState(checkboxId, defaultValue = false) {
+            const saved = localStorage.getItem('checkbox_' + checkboxId);
+            if (saved === null) return defaultValue;
+            return saved === 'true';
+        }
+
+        function saveDropdownState(dropdownId, value) {
+            localStorage.setItem('dropdown_' + dropdownId, value);
+        }
+
+        function loadDropdownState(dropdownId, defaultValue = '') {
+            const saved = localStorage.getItem('dropdown_' + dropdownId);
+            return saved !== null ? saved : defaultValue;
+        }
+
+        // Load all saved states on page load
+        function loadAllCheckboxStates() {
+            // Load corner buffer dropdown
+            const savedBuffer = loadDropdownState('cornerBuffer', 'UFR');
+            cornerBufferSelect.value = savedBuffer;
+
+            // Update target checkboxes and scramble labels based on loaded buffer
+            updateTargetCheckboxes();
+            updateCornerScrambleLabels();
+
+            // Load corner scramble type dropdown
+            const savedCornerType = loadDropdownState('cornerScrambleType');
+            if (savedCornerType) {
+                cornerScrambleSelect.value = savedCornerType;
+            }
+
+            // Load edge buffer dropdown
+            const savedEdgeBuffer = loadDropdownState('edgeBuffer', 'UF');
+            edgeBufferSelect.value = savedEdgeBuffer;
+
+            // Load edge scramble type dropdown
+            const savedEdgeType = loadDropdownState('edgeScrambleType', edgeLabels[0]);
+            edgeScrambleSelect.value = savedEdgeType;
+
+            // Load LTCT mode
+            const savedLTCTMode = loadDropdownState('ltctMode', 'pieces');
+            if (savedLTCTMode === 'stickers') {
+                document.getElementById('ltctModeStickers').checked = true;
+            } else {
+                document.getElementById('ltctModePieces').checked = true;
+            }
+
+            // Load checkbox states after checkboxes are generated
+            document.querySelectorAll('.parity-target, .ltct-parity-target, .ltct-twist-target, .ltct2-parity-target, .ltct2-twist-target').forEach(checkbox => {
+                const saved = loadCheckboxState(checkbox.id, true);
+                checkbox.checked = saved;
+            });
+
+            // Update visibility of parity settings after loading
+            updateParitySettingsVisibility();
+            updateEdgeSettingsVisibility();
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', loadAllCheckboxStates);
+
         document.addEventListener('keydown', event => {
-            if (event.code === 'Space' 
-                && document.activeElement.id !== 'holdingOrientation' 
+            if (event.code === 'Space'
+                && document.activeElement.id !== 'holdingOrientation'
             ) {
                 event.preventDefault();
                 generateScramble();
             }
         });
-        
+
     </script>
 
     <script src="cube.js"></script>
     <script src="solve.js"></script>
-    <script src="comms.js"></script>
     <script src="alg_jison.js"></script>
     <script src="alg.js"></script>
     <script src="bldAlgs.js"></script>

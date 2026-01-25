@@ -34,265 +34,55 @@ function twistCornerTarget(target, times) {
     return CORNER_ORIENTATIONS[piece][(orientation+times)%3];
 }
 
-const J_PERM = "R U R' F' R U R' U' R' F R2 U' R' U'";
-
-const UFR_TWISTS = {
-    "LUB": "R' D R D' R' D R U2 R' D' R D R' D' R U2",
-    "LUF": "U' R' D R D' R' D R U R' D' R D R' D' R",
-    "LDB": "U' R D' R' U R U' R' U R D R' U' R U R'",
-    "LDF": "U' D R' D' R U R' D R D' R' D R U' R' D' R U",
-    "FUL": "R' D R D' R' D R U' R' D' R D R' D' R U",
-    "FDL": "U' R' D R U R' D' R D R' D' R U' R' D R U D'",
-    "FDR": "U R' D' R U' R' D R D' R' D R U R' D' R U' D",
-    "RUB": "U R' D R D' R' D R U' R' D' R D R' D' R",
-    "RDF": "U D' R' D R U' R' D' R D R' D' R U R' D R U'",
-    "RDB": "R U' R' U R D R' U' R U R' U' R D' R' U",
-    "BUL": "U2 R' D R D' R' D R U2 R' D' R D R' D' R",
-    "BUR": "R' D R D' R' D R U R' D' R D R' D' R U'",
-    "BDL": "R U' R' U R D' R' U' R U R' U' R D R' U",
-    "BDR": "U' R D R' U R U' R' U R D' R' U' R U R'",
-};
-
-const UF_FLIPS = {
-    "UB": "U' S R' F' R S' R' F R U' M' U2 M",
-    "UL": "L E2 L2 E L U L' E' L2 E2 L' U'",
-    "UR": "R' E2 R2 E' R' U' R E R2 E2 R U",
-    "LU": "L E2 L2 E L U L' E' L2 E2 L' U'",
-    "LB": "R E' R' U' R E R2 E2 R U R' E2 R",
-    "LF": "R' E R U' R' E' R2 E2 R' U R E2 R'",
-    "LD": "U' L E L' U2 L E' L' S' L2 S L2 U'",
-    "FL": "R' E R U' R' E' R2 E2 R' U R E2 R'",
-    "FR": "L E' L' U L E L2 E2 L U' L' E2 L",
-    "FD": "R' F R S R' F2 R2 E R2 E' R S' R' F R",
-    "RU": "R' E2 R2 E' R' U' R E R2 E2 R U",
-    "RF": "L E' L' U L E L2 E2 L U' L' E2 L",
-    "RB": "L' E L U L' E' L2 E2 L' U' L E2 L'",
-    "RD": "U R' E' R U2 R' E R S R2 S' R2 U",
-    "BU": "U' S R' F' R S' R' F R U' M' U2 M",
-    "BL": "R E' R' U' R E R2 E2 R U R' E2 R",
-    "BR": "L' E L U L' E' L2 E2 L' U' L E2 L'",
-    "BD": "U2 M U' S R' F' R S' R' F R U' M'",
-    "DB": "U2 M U' S R' F' R S' R' F R U' M'",
-    "DL": "U' L E L' U2 L E' L' S' L2 S L2 U'",
-    "DR": "U R' E' R U2 R' E R S R2 S' R2 U",
-    "DF": "R' F R S R' F2 R2 E R2 E' R S' R' F R",
+function getEdgeParityAlg(buffer, target) {
+    let alg = null;
+    if (buffer === "UF" || buffer === "FU") {
+        alg = PARITY_UF_X_UFR_UBR[target];
+    } else if (buffer === "UR" || buffer === "RU") {
+        alg = PARITY_UR_X_UFR_UBR[target];
+    }
+    if (!alg) {
+        console.error("getEdgeParityAlg: No alg found for buffer=" + buffer + ", target=" + target);
+    }
+    return alg || "";
 }
 
-function generate3BLDEdge3CycleAlg(buffer, target1, target2) {
-    // if FU is used, flip cycle to use UF
-    if (buffer === "FU" || target1 === "FU" || target2 === "FU") {
-        buffer = flipEdgeTarget(buffer);
-        target1 = flipEdgeTarget(target1);
-        target2 = flipEdgeTarget(target2);
-    }
-
-    // shift UF to buffer if it is not already
-    if (target1 == "UF") {
-        target1 = target2;
-        target2 = buffer;
-        buffer = "UF";
-    }
-
-    if (target2 == "UF") {
-        target2 = target1;
-        target1 = buffer;
-        buffer = "UF";
-    }
-
-    // return single cycle if buffer is UF
-    if (buffer == "UF") {
-        return COMMS["UF"][target1][target2];
-    }
-
-    // return UF-sandwiched floating comm
-    let comm1 = COMMS["UF"][buffer][target1];
-    let comm2 = COMMS["UF"][target2][buffer];
-    return comm1 + " " + comm2;
-}
-
-function generate3BLDCorner3CycleAlg(buffer, target1, target2) {
-    // if FUR or RUF is used, twist cycle to use UFR
-    if (buffer === "FUR" || target1 === "FUR" || target2 === "FUR") {
-        buffer = twistCornerTarget(buffer, 1);
-        target1 = twistCornerTarget(target1, 1);
-        target2 = twistCornerTarget(target2, 1);
-    }
-
-    if (buffer === "RUF" || target1 === "RUF" || target2 === "RUF") {
-        buffer = twistCornerTarget(buffer, 2);
-        target1 = twistCornerTarget(target1, 2);
-        target2 = twistCornerTarget(target2, 2);
-    }
-
-    // shift UFR to buffer if it is not already
-    if (target1 == "UFR") {
-        target1 = target2;
-        target2 = buffer;
-        buffer = "UFR";
-    }
-
-    if (target2 == "UFR") {
-        target2 = target1;
-        target1 = buffer;
-        buffer = "UFR";
-    }
-
-    // console.log(`${buffer} ${target1} ${target2}`);
-
-    // return single cycle if buffer is UFR
-    if (buffer == "UFR") {
-        return COMMS["UFR"][target1][target2];
-    }
-
-    // return UFR-sandwiched floating comm
-    let comm1 = COMMS["UFR"][buffer][target1];
-    let comm2 = COMMS["UFR"][target2][buffer];
-    return comm1 + " " + comm2;
-}
-
-function generateEOAlg(edges) {
-    // assert: edges is array of strings of length 2 and are valid edge targets
+function generateEOAlg(edges, buffer = "UF") {
     let alg = "";
 
     edges.forEach(edge => {
-        alg += " ";
-        alg += UF_FLIPS[edge];
+        const piece = EDGES.find(p => p.includes(edge));
+        alg += " " + getEdgeParityAlg(buffer, piece[0]);
+        alg += " " + getEdgeParityAlg(buffer, piece[1]);
     });
 
     return alg;
 }
 
 function generateCOAlg(corners) {
-    // assert: corners is array of strings of length 3 and are valid corner targets
     let alg = "";
 
     corners.forEach(corner => {
-        alg += " ";
-        alg += UFR_TWISTS[corner];
+        const piece = CORNERS.find(p => p.includes(corner));
+        const udTarget = piece[0];
+        alg += " " + PARITY_UF_UR_UFR_X[corner];
+        alg += " " + PARITY_UF_UR_UFR_X[udTarget];
     });
 
     return alg;
 }
 
-function generateParityAlg(edge1, edge2, corner1, corner2) {
-    // assert:
-    let alg = "";
-
-    // set up edges to UF/UR swapped and corners to UFR/UBR swapped then do J perm
-
-    // if UR piece is used, flip orientation to UR and make it edge1
-    if (edge1 === "RU" || edge2 === "RU") {
-        edge1 = flipEdgeTarget(edge1);
-        edge2 = flipEdgeTarget(edge2);
-    }
-
-    if (edge2 === "UR") {
-        [edge1, edge2] = [edge2, edge1];
-    }
-
-    if (edge1 === "UR") {
-        // UF/RU swap
-        if (edge2 === "FU") {
-            alg += UF_FLIPS["UR"];
-        }
-        // UF/UR swap, add moves to avoid starting alg with space
-        else if (edge2 === "UF") {
-            alg += "U U'";
-        }
-        // swap UR/x outside of UF change to UF UR x
-        else {
-            alg += COMMS["UF"]["UR"][edge2];
-        }
-        // console.log(alg);
-    }
-    // UF piece and another piece other than UR is used
-    else if (edge1 === "FU" || edge2 === "FU") {
-        edge1 = flipEdgeTarget(edge1);
-        edge2 = flipEdgeTarget(edge2);
-    }
-    else if (edge2 === "UF") {
-        [edge1, edge2] = [edge2, edge1];
-    }
-    // swap UF-x change to UF x UR
-    else if (edge1 === "UF") {
-        alg += COMMS["UF"][edge2]["UR"];
-    }
-    // general case: 2e2e
-    else {
-        alg += COMMS["UF"][edge1][edge2];
-        alg += " ";
-        alg += COMMS["UF"][edge1]["UR"];
-    }
-
-    alg += " ";
-
-    // UFR piece is used
-    if (corner1 === "FUR" || corner2 === "FUR") {
-        corner1 = twistCornerTarget(corner1, 1);
-        corner2 = twistCornerTarget(corner2, 1);
-    }
-
-    if (corner1 === "RUF" || corner2 === "RUF") {
-        corner1 = twistCornerTarget(corner1, 2);
-        corner2 = twistCornerTarget(corner2, 2);
-    }
-
-    if (corner2 === "UFR") {
-        [corner1, corner2] = [corner2, corner1];
-    }
-
-    if (corner1 === "UFR") {
-        // UFR/UBR not swapped already
-        if (corner2 !== "UBR") {
-            alg += COMMS["UFR"][corner2]["UBR"];
-        }
-        
-        if (corner2 == "RUB" || corner2 == "BUR") {
-            alg += " ";
-            alg += UFR_TWISTS[corner2];
-        }
-
-        alg += " " + J_PERM;
-        // console.log(alg);
-        return alg;
-    }
-
-    // UBR and piece other than UFR is used
-    if (corner2 === "UBR" || corner2 === "RUB" || corner2 === "BUR") {
-        [corner1, corner2] = [corner2, corner1];
-        // console.log(`${corner1} ${corner2}`);
-    }
-
-    // if UBR piece is involved, do a comm and fix CO with a UFR twist alg
-    if (corner1 === "UBR" || corner1 === "RUB" || corner1 === "BUR") {
-        alg += COMMS["UFR"][corner1][corner2];
-        if (corner1 !== "UBR") {
-            alg += " ";
-            alg += UFR_TWISTS[corner1];
-        }
-        // console.log(`${corner1} ${corner2}`);
-    }
-    // general case: 2e2e
-    else {
-        alg += COMMS["UFR"][corner1][corner2];
-        alg += " ";
-        alg += COMMS["UFR"][corner1]["UBR"];
-    }
-
-    alg += " " + J_PERM;
-
-    // console.log(alg);
-
-    return alg;
+function generateParityAlg(_edge1, _edge2, _corner1, corner2) {
+    return PARITY_UF_UR_UFR_X[corner2];
 }
 
 function doEdgeComm() {
     let inputText = document.getElementById('edgeMemo').value;
     let targets = inputText.split(" ");
-    let buffer = targets[0];
     let target1 = targets[1];
     let target2 = targets[2];
-    cube.move(generate3BLDEdge3CycleAlg(buffer, target1, target2));
+    cube.move(PARITY_UF_X_UFR_UBR[target1]);
+    cube.move(PARITY_UF_X_UFR_UBR[target2]);
     vc.cubeString = cube.asString();
     vc.drawCube(ctx);
 }
@@ -300,10 +90,10 @@ function doEdgeComm() {
 function doCornerComm() {
     let inputText = document.getElementById('cornerMemo').value;
     let targets = inputText.split(" ");
-    let buffer = targets[0];
     let target1 = targets[1];
     let target2 = targets[2];
-    cube.move(generate3BLDCorner3CycleAlg(buffer, target1, target2));
+    cube.move(PARITY_UF_UR_UFR_X[target1]);
+    cube.move(PARITY_UF_UR_UFR_X[target2]);
     vc.cubeString = cube.asString();
     vc.drawCube(ctx);
 }
@@ -347,3 +137,83 @@ function getMovesFromComm() {
     let moves = commToMoves(inputText);
     console.log(alg.cube.simplify(moves));
 }
+
+const PARITY_UR_X_UFR_UBR = {
+    "UB": "R2 D' R2 U R D R' D' R U' R' U R' U' D",
+    "DL": "R2 S' R' U R' U' R' F R2 U' R' U' R U R' F' S",
+    "DB": "r M' U R' F' R U R' U' R' F R2 U' R' U' M2",
+    "DF": "U M' U2 M U R U R' U' R' F R2 U' R' U' R U R' F'",
+    "UL": "R U R' U' R' F R2 U' R' U' R U R' F'",
+    "LB": "R' U R U' R D B D' R' f' U f R'",
+    "LF": "R U' R' U R' D' F' D R F R' F' R",
+    "LD": "D r U R' F' R U R' U' R' F R2 U' R' U' M D'",
+    "FU": "R D F' D' F' R2 F R2 F R2 D F D' R",
+    "FL": "R2 F' R F R U' R2 F R F R' F' R U R",
+    "FR": "R' U' R D' R' U D R2 D' R' D R'",
+    "FD": "r U R' F' R U R' U' R' F R2 U' R' U' M",
+    "RB": "U' R' U2 R U2 R' U' R U' R' U R f R f'",
+    "RF": "U R F R2 F' U F2 U' F R F U' R' D R2 D'",
+    "UF": "R U R' F' R U R' U' R' F R2 U' R' U'",
+    "RD": "D' r U R' F' R U R' U' R' F R2 U' R' U' M D",
+    "BL": "R' B R2 B' R2 U2 B' U2 F R2 F' R'",
+    "BR": "R U R' D R U' D' R2 D R D' R",
+    "BD": "R' F R F' R U2 r' U r U2 R'",
+    "DR": "S' R U R' U' R' F R2 U' R' U' R U R' F' S",
+    "BU": "R M U R' F' R U R' U' R' F R2 U' R' U' M'",
+    "LU": "R' U R U2 R' U' F U R U' R' F' U2 R U",
+};
+
+const PARITY_UF_X_UFR_UBR = {
+    "UB": "S R' F R f' R' F R2 U R' U' R' F' R2 U R'",
+    "DL": "S2 R2 D' R' D R' f2 R D' R' F2",
+    "DB": "D' R' U' R U' R2 D R' U R U' D' R2 U2 R D",
+    "DF": "D R' U' R2 U R U' D' R2 U R U' R2 D R U R D'",
+    "UL": "U' R' U2 R' D' R U' R' D R U R U' R' U' R",
+    "LB": "R u R' F' R U R' U' R' F R2 U' R' U' R E R'",
+    "LF": "R' E R U' R' E' R U R U R' F' R U R' U' R' F R2 U' R' U'",
+    "LD": "U D F2 R U' R' F R U R' F U' F D'",
+    "FL": "r U R' U' r' F R U2 R U' R' U' R U' R' F'",
+    "FR": "R2 U' R U D' R U R' D R U2 R U",
+    "FD": "U F2 R U' R' F R U R' F U' F",
+    "RB": "R2 D' F R U R' F U' F U F2 D R U' R",
+    "RF": "R F' U' F' R2 F R2 U R2 F' R F R F R' F",
+    "RD": "S' R U R' F' R U R' U' R' F R2 U' R' U' S",
+    "BL": "B' R2 U' F R' F' U2 R B U' B' R2 B R U' R'",
+    "BR": "R' U2 R' F R2 U' R' U' R U R' F' R U R' U R",
+    "BD": "U' D' R' U D R' U' R D' R U F R' F' D",
+    "UR": "R U R' F' R U R' U' R' F R2 U' R' U'",
+    "RU": "R D F' D' F' R2 F R2 F R2 D F D' R",
+    "DR": "R' U' R U' R2 D R' U R U' D' R2 U2 R",
+    "BU": "R U2 R' U2 R' F R U R U2 R' U' R U R' F'",
+    "LU": "S R U R' F' R U R' U' R' F R2 U' R' U' S'",
+};
+
+// Jb perm: UF UR UFL UBR parity = PARITY_UF_UR_UFR_X["UBR"]
+const Jb_PERM = "R U R' F' R U R' U' R' F R2 U' R' U'";
+
+// UF UR flip: flips both UF and UR edges
+const UF_UR_FLIP = "R' E2 R2 E' R' U' R E R2 E2 R U";
+
+const PARITY_UF_UR_UFR_X = {
+    "UBL": "R D' R2 U2 R U' R' F2 U' F2 R U' R2 D R2",
+    "DBR": "U R2 U' R U R' F' R U R' U' R' F R2 U' R U'",
+    "DBL": "U D' R F' R' U R U F U' F' U' F R' U2 D",
+    "DFR": "U D R2 U' R2 U R2 D' R2 U R2 U' R2 U2",
+    "UBR": "R U R' F' R U R' U' R' F R2 U' R' U'",
+    "LUF": "R' U' R2 U R' D R U' D' R2 D R U D' R",
+    "LDB": "R U D' R' F' R U R' U' R' F R2 U' R' U' R D R'",
+    "LDF": "U D R U' R U R' F' R U R' U' R' F R2 U' R2 U' D'",
+    "FUL": "D R D' R2 U F2 U' F2 R2 D R' D' R U' R' U R'",
+    "FDL": "U2 D R' F R2 U' R' U' R U R' F' R U R' U D'",
+    "FDR": "U R U' R U R' F' R U R' U' R' F R2 U' R2 U'",
+    "RDF": "U2 R' F R2 U' R' U' R U R' F' R U R' U",
+    "RUB": "R U R' U R U2 R2 F' R U R' U' R' F R2 U' R' U2 R",
+    "UFL": "U' D R2 D' R2 U R D R' D' R U' R' U R'",
+    "RDB": "R U D R' F' R U R' U' R' F R2 U' R' U' R D' R'",
+    "BUR": "U' R' U2 R U R2 F R U R U' R' F' R U'",
+    "BDL": "U' R' D' R U R' U' D R D' R D R' U R' D' R D R",
+    "BDR": "U2 D' R' F R2 U' R' U' R U R' F' R U R' U D",
+    "DFL": "U R2 D R U' R2 D' R2 U D R U R U' R' U2 R' D' R",
+    "BUL": "U R' D R2 U' R' U R2 D' R2 U R U' R' U2",
+    "LUB": "U R' U' R U R' F' R U R' U' R' F R2 U2",
+};
