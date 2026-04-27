@@ -3,7 +3,13 @@
     "allow": [
       "Bash(cat:*)",
       "Bash(awk:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(node check_positions.js:*)",
+      "Bash(node -c:*)",
+      "Bash(node -e:*)",
+      "Bash(python:*)",
+      "Bash(ls:*)",
+      "Bash(npm run *)"
     ]
   }
 }

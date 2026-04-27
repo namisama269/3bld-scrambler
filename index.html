@@ -4,24 +4,54 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3BLD Scrambler</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta name="theme-color" content="#024e7d">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/geist@5/index.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/geist-mono@5/index.min.css">
     <link rel="stylesheet" href="style.css">
+    <script>
+        (function () {
+            var t = localStorage.getItem('theme');
+            if (t === 'dark' || (t == null && matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
 </head>
 <body>
     <div class="container-fluid py-4">
-        <h1 class="mb-4">3BLD Scrambler</h1>
+        <div class="header-row">
+            <h1>3BLD Scrambler</h1>
+            <div class="header-actions">
+                <button type="button" class="theme-toggle settings-toggle" id="settingsToggle" aria-label="Toggle settings" aria-pressed="true">
+                    <svg class="icon-settings-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    <svg class="icon-settings-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136A2 2 0 0 1 11.46 3h1.08a2 2 0 0 1 1.789 1.136l.317.65a1.65 1.65 0 0 0 1.99.74l.7-.226a2 2 0 0 1 2.297.68M20.486 9.671 20.864 11.46a2 2 0 0 1 0 1.08l-.226.7M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4M4.6 9a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4M2 2l20 20"/></svg>
+                </button>
+                <button type="button" class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                    <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="layout-grid">
+            <div class="settings-col">
 
         <div class="card mb-3">
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-6 mb-2 mb-md-0">
                         <h5 class="card-title">Corner buffer:</h5>
-                        <select class="form-select" id="cornerBufferSelect" disabled style="background-color: #e9ecef; color: #6c757d; cursor: not-allowed;"></select>
+                        <select class="form-select" id="cornerBufferSelect"></select>
                     </div>
                     <div class="col-md-6">
                         <h5 class="card-title">Edge buffer:</h5>
                         <select class="form-select" id="edgeBufferSelect"></select>
                     </div>
+                </div>
+                <div class="mt-3">
+                    <h5 class="card-title">BLD orientation:</h5>
+                    <select class="form-select" id="holdingOrientation"></select>
                 </div>
             </div>
         </div>
@@ -31,20 +61,107 @@
                 <h5 class="card-title">Corner scramble type:</h5>
                 <select class="form-select" id="cornerScrambleSelect"></select>
 
+                <!-- Twist Settings -->
+                <div id="twistSettings" class="mt-3 parity-settings hidden">
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Twist mode:</strong></label>
+                        <div class="btn-group" role="group">
+                            <input type="radio" class="btn-check" name="twistMode" id="twistMode2T" value="2-twist" checked>
+                            <label class="btn btn-outline-primary" for="twistMode2T">2-twist</label>
+                            <input type="radio" class="btn-check" name="twistMode" id="twistModeFloating2T" value="Floating 2T">
+                            <label class="btn btn-outline-primary" for="twistModeFloating2T">Floating 2T</label>
+                            <input type="radio" class="btn-check" name="twistMode" id="twistMode3T" value="3-twist">
+                            <label class="btn btn-outline-primary" for="twistMode3T">3-twist</label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Extra targets:</strong></label>
+                        <div class="btn-group" role="group" id="twistCountGroup">
+                            <input type="radio" class="btn-check" name="twistCount" id="twistCount0" value="0" checked>
+                            <label class="btn btn-outline-primary" for="twistCount0">0</label>
+                            <input type="radio" class="btn-check" name="twistCount" id="twistCount1" value="1">
+                            <label class="btn btn-outline-primary" for="twistCount1">1</label>
+                            <input type="radio" class="btn-check" name="twistCount" id="twistCount2" value="2">
+                            <label class="btn btn-outline-primary" for="twistCount2">2</label>
+                            <input type="radio" class="btn-check" name="twistCount" id="twistCount3" value="3">
+                            <label class="btn btn-outline-primary" for="twistCount3">3</label>
+                            <input type="radio" class="btn-check" name="twistCount" id="twistCount4" value="4">
+                            <label class="btn btn-outline-primary" for="twistCount4">4</label>
+                            <input type="radio" class="btn-check" name="twistCount" id="twistCount5" value="5">
+                            <label class="btn btn-outline-primary" for="twistCount5">5</label>
+                            <input type="radio" class="btn-check" name="twistCount" id="twistCount6" value="6">
+                            <label class="btn btn-outline-primary" for="twistCount6">6</label>
+                            <input type="radio" class="btn-check" name="twistCount" id="twistCount7" value="7">
+                            <label class="btn btn-outline-primary" for="twistCount7">7</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Comms Settings -->
+                <div id="commsSettings" class="mt-3 parity-settings hidden">
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Target count:</strong></label>
+                        <div class="btn-group" role="group">
+                            <input type="radio" class="btn-check" name="commsCount" id="commsCount2" value="2">
+                            <label class="btn btn-outline-primary" for="commsCount2">2</label>
+                            <input type="radio" class="btn-check" name="commsCount" id="commsCount4" value="4">
+                            <label class="btn btn-outline-primary" for="commsCount4">4</label>
+                            <input type="radio" class="btn-check" name="commsCount" id="commsCount6" value="6">
+                            <label class="btn btn-outline-primary" for="commsCount6">6</label>
+                            <input type="radio" class="btn-check" name="commsCount" id="commsCount8" value="8" checked>
+                            <label class="btn btn-outline-primary" for="commsCount8">8</label>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Parity target selection -->
                 <div id="paritySettings" class="mt-3 parity-settings hidden">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="mb-0"><strong>Parity Target Selection</strong></h6>
-                        <div>
+                    <!-- Parity count selector -->
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Target count:</strong></label>
+                        <div class="btn-group" role="group">
+                            <input type="radio" class="btn-check" name="parityCount" id="parityCount1" value="1">
+                            <label class="btn btn-outline-primary" for="parityCount1">1</label>
+                            <input type="radio" class="btn-check" name="parityCount" id="parityCount3" value="3">
+                            <label class="btn btn-outline-primary" for="parityCount3">3</label>
+                            <input type="radio" class="btn-check" name="parityCount" id="parityCount5" value="5">
+                            <label class="btn btn-outline-primary" for="parityCount5">5</label>
+                            <input type="radio" class="btn-check" name="parityCount" id="parityCount7" value="7" checked>
+                            <label class="btn btn-outline-primary" for="parityCount7">7</label>
+                        </div>
+                    </div>
+
+                    <div class="ms-block">
+                        <div class="ms-header">
+                            <span class="ms-label">Target selection</span>
+                            <span class="ms-count" data-count-for="parity-target"></span>
+                        </div>
+                        <div class="ms-actions">
                             <button class="btn btn-sm btn-outline-primary me-1" onclick="selectAllParityTargets()">Select All</button>
                             <button class="btn btn-sm btn-outline-secondary" onclick="unselectAllParityTargets()">Unselect All</button>
                         </div>
+                        <div class="multiselect-container" id="parityTargetCheckboxes"></div>
                     </div>
-                    <div class="multiselect-container" id="parityTargetCheckboxes"></div>
                 </div>
 
                 <!-- LTCT Settings -->
                 <div id="ltctSettings" class="mt-3 parity-settings hidden">
+                    <!-- Target count -->
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Target count:</strong></label>
+                        <div class="btn-group" role="group">
+                            <input type="radio" class="btn-check" name="ltctCount" id="ltctCount1" value="1">
+                            <label class="btn btn-outline-primary" for="ltctCount1">1</label>
+                            <input type="radio" class="btn-check" name="ltctCount" id="ltctCount3" value="3">
+                            <label class="btn btn-outline-primary" for="ltctCount3">3</label>
+                            <input type="radio" class="btn-check" name="ltctCount" id="ltctCount5" value="5">
+                            <label class="btn btn-outline-primary" for="ltctCount5">5</label>
+                            <input type="radio" class="btn-check" name="ltctCount" id="ltctCount7" value="7" checked>
+                            <label class="btn btn-outline-primary" for="ltctCount7">7</label>
+                        </div>
+                    </div>
+
                     <!-- Target selection mode toggle -->
                     <div class="mb-3">
                         <label class="form-label"><strong>Target selection mode:</strong></label>
@@ -57,64 +174,89 @@
                     </div>
 
                     <!-- Stickers mode: Parity target selection -->
-                    <div id="ltctStickersParitySettings" class="parity-settings hidden">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><strong>LTCT Parity Target Selection</strong></h6>
-                            <div>
+                    <div id="ltctStickersParitySettings" class="hidden">
+                        <div class="ms-block">
+                            <div class="ms-header">
+                                <span class="ms-label">Parity targets</span>
+                                <span class="ms-count" data-count-for="ltct-parity-target"></span>
+                            </div>
+                            <div class="ms-actions">
                                 <button class="btn btn-sm btn-outline-primary me-1" onclick="selectAllLTCTParityTargets()">Select All</button>
                                 <button class="btn btn-sm btn-outline-secondary" onclick="unselectAllLTCTParityTargets()">Unselect All</button>
                             </div>
+                            <div class="multiselect-container" id="ltctParityTargetCheckboxes"></div>
                         </div>
-                        <div class="multiselect-container" id="ltctParityTargetCheckboxes"></div>
                     </div>
 
                     <!-- Stickers mode: Twist target selection -->
-                    <div id="ltctStickersTwistSettings" class="mt-3 parity-settings hidden">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><strong>LTCT Twist Target Selection</strong></h6>
-                            <div>
+                    <div id="ltctStickersTwistSettings" class="hidden">
+                        <div class="ms-block">
+                            <div class="ms-header">
+                                <span class="ms-label">Twist targets</span>
+                                <span class="ms-count" data-count-for="ltct-twist-target"></span>
+                            </div>
+                            <div class="ms-actions">
                                 <button class="btn btn-sm btn-outline-primary me-1" onclick="selectAllLTCTTwistTargets()">Select All</button>
                                 <button class="btn btn-sm btn-outline-secondary" onclick="unselectAllLTCTTwistTargets()">Unselect All</button>
                             </div>
+                            <div class="multiselect-container" id="ltctTwistTargetCheckboxes"></div>
                         </div>
-                        <div class="multiselect-container" id="ltctTwistTargetCheckboxes"></div>
                     </div>
 
                     <!-- Pieces mode: Parity piece selection (U/D stickers only) -->
-                    <div id="ltctPiecesParitySettings" class="parity-settings">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><strong>LTCT Parity Piece Selection</strong></h6>
-                            <div>
+                    <div id="ltctPiecesParitySettings">
+                        <div class="ms-block">
+                            <div class="ms-header">
+                                <span class="ms-label">Parity pieces</span>
+                                <span class="ms-count" data-count-for="ltct2-parity-target"></span>
+                            </div>
+                            <div class="ms-actions">
                                 <button class="btn btn-sm btn-outline-primary me-1" onclick="selectAllLTCT2ParityTargets()">Select All</button>
                                 <button class="btn btn-sm btn-outline-secondary" onclick="unselectAllLTCT2ParityTargets()">Unselect All</button>
                             </div>
+                            <div class="multiselect-container" id="ltct2ParityTargetCheckboxes"></div>
                         </div>
-                        <div class="multiselect-container" id="ltct2ParityTargetCheckboxes"></div>
                     </div>
 
                     <!-- Pieces mode: Twist piece selection (U/D stickers only) -->
-                    <div id="ltctPiecesTwistSettings" class="mt-3 parity-settings">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><strong>LTCT Twist Piece Selection</strong></h6>
-                            <div>
+                    <div id="ltctPiecesTwistSettings">
+                        <div class="ms-block">
+                            <div class="ms-header">
+                                <span class="ms-label">Twist pieces</span>
+                                <span class="ms-count" data-count-for="ltct2-twist-target"></span>
+                            </div>
+                            <div class="ms-actions">
                                 <button class="btn btn-sm btn-outline-primary me-1" onclick="selectAllLTCT2TwistTargets()">Select All</button>
                                 <button class="btn btn-sm btn-outline-secondary" onclick="unselectAllLTCT2TwistTargets()">Unselect All</button>
                             </div>
+                            <div class="multiselect-container" id="ltct2TwistTargetCheckboxes"></div>
                         </div>
-                        <div class="multiselect-container" id="ltct2TwistTargetCheckboxes"></div>
                     </div>
                 </div>
 
-                <!-- T2C Settings -->
+                <!-- 2-Swap Settings -->
                 <div id="t2cSettings" class="mt-3 parity-settings hidden">
-                    <!-- First piece selection -->
+                    <!-- Orientation toggle -->
                     <div class="mb-3">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><strong>T2C First Piece Selection</strong></h6>
-                            <div>
-                                <button class="btn btn-sm btn-outline-primary me-1" onclick="selectAllT2CFirstPieces()">Select All</button>
-                                <button class="btn btn-sm btn-outline-secondary" onclick="unselectAllT2CFirstPieces()">Unselect All</button>
-                            </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="twoSwapMode" id="twoSwapModeUnoriented" value="unoriented" checked>
+                            <label class="form-check-label" for="twoSwapModeUnoriented">Unoriented (T2C)</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="twoSwapMode" id="twoSwapModeOriented" value="oriented">
+                            <label class="form-check-label" for="twoSwapModeOriented">Oriented</label>
+                        </div>
+                    </div>
+
+                    <!-- First piece selection -->
+                    <div class="ms-block mb-3">
+                        <div class="ms-header">
+                            <span class="ms-label">First piece selection</span>
+                            <span class="ms-count" data-count-for="t2c-first-piece"></span>
+                        </div>
+                        <div class="ms-actions">
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="selectAllT2CFirstPieces()">Select All</button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="unselectAllT2CFirstPieces()">Unselect All</button>
                         </div>
                         <div class="multiselect-container" id="t2cFirstPieceCheckboxes"></div>
                     </div>
@@ -135,16 +277,131 @@
                 <h5 class="card-title">Edge scramble type:</h5>
                 <select class="form-select" id="edgeScrambleSelect"></select>
 
-                <!-- F2E Settings -->
-                <div id="f2eSettings" class="mt-3 parity-settings hidden">
-                    <!-- First piece selection -->
+                <!-- Edge Parity Settings -->
+                <div id="edgeParitySettings" class="mt-3 parity-settings hidden">
                     <div class="mb-3">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0"><strong>F2E First Piece Selection</strong></h6>
-                            <div>
-                                <button class="btn btn-sm btn-outline-primary me-1" onclick="selectAllF2EFirstPieces()">Select All</button>
-                                <button class="btn btn-sm btn-outline-secondary" onclick="unselectAllF2EFirstPieces()">Unselect All</button>
-                            </div>
+                        <label class="form-label"><strong>Target count:</strong></label>
+                        <div class="btn-group" role="group">
+                            <input type="radio" class="btn-check" name="edgeParityCount" id="edgeParityCount1" value="1">
+                            <label class="btn btn-outline-primary" for="edgeParityCount1">1</label>
+                            <input type="radio" class="btn-check" name="edgeParityCount" id="edgeParityCount3" value="3">
+                            <label class="btn btn-outline-primary" for="edgeParityCount3">3</label>
+                            <input type="radio" class="btn-check" name="edgeParityCount" id="edgeParityCount5" value="5">
+                            <label class="btn btn-outline-primary" for="edgeParityCount5">5</label>
+                            <input type="radio" class="btn-check" name="edgeParityCount" id="edgeParityCount7" value="7">
+                            <label class="btn btn-outline-primary" for="edgeParityCount7">7</label>
+                            <input type="radio" class="btn-check" name="edgeParityCount" id="edgeParityCount9" value="9">
+                            <label class="btn btn-outline-primary" for="edgeParityCount9">9</label>
+                            <input type="radio" class="btn-check" name="edgeParityCount" id="edgeParityCount11" value="11" checked>
+                            <label class="btn btn-outline-primary" for="edgeParityCount11">11</label>
+                        </div>
+                    </div>
+
+                    <div class="ms-block">
+                        <div class="ms-header">
+                            <span class="ms-label">Target selection</span>
+                            <span class="ms-count" data-count-for="edge-parity-target"></span>
+                        </div>
+                        <div class="ms-actions">
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="selectAllEdgeParityTargets()">Select All</button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="unselectAllEdgeParityTargets()">Unselect All</button>
+                        </div>
+                        <div class="multiselect-container" id="edgeParityTargetCheckboxes"></div>
+                    </div>
+                </div>
+
+                <!-- Flips Settings -->
+                <div id="flipsSettings" class="mt-3 parity-settings hidden">
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Flip mode:</strong></label>
+                        <div class="btn-group" role="group">
+                            <input type="radio" class="btn-check" name="flipMode" id="flipMode2F" value="2-flip" checked>
+                            <label class="btn btn-outline-primary" for="flipMode2F">2-flip</label>
+                            <input type="radio" class="btn-check" name="flipMode" id="flipModeFloating2F" value="Floating 2F">
+                            <label class="btn btn-outline-primary" for="flipModeFloating2F">Floating 2F</label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Extra targets:</strong></label>
+                        <div class="btn-group" role="group" id="flipExtraCountGroup">
+                            <input type="radio" class="btn-check" name="flipExtraCount" id="flipExtraCount0" value="0" checked>
+                            <label class="btn btn-outline-primary" for="flipExtraCount0">0</label>
+                            <input type="radio" class="btn-check" name="flipExtraCount" id="flipExtraCount1" value="1">
+                            <label class="btn btn-outline-primary" for="flipExtraCount1">1</label>
+                            <input type="radio" class="btn-check" name="flipExtraCount" id="flipExtraCount2" value="2">
+                            <label class="btn btn-outline-primary" for="flipExtraCount2">2</label>
+                            <input type="radio" class="btn-check" name="flipExtraCount" id="flipExtraCount3" value="3">
+                            <label class="btn btn-outline-primary" for="flipExtraCount3">3</label>
+                            <input type="radio" class="btn-check" name="flipExtraCount" id="flipExtraCount4" value="4">
+                            <label class="btn btn-outline-primary" for="flipExtraCount4">4</label>
+                            <input type="radio" class="btn-check" name="flipExtraCount" id="flipExtraCount5" value="5">
+                            <label class="btn btn-outline-primary" for="flipExtraCount5">5</label>
+                            <input type="radio" class="btn-check" name="flipExtraCount" id="flipExtraCount6" value="6">
+                            <label class="btn btn-outline-primary" for="flipExtraCount6">6</label>
+                            <input type="radio" class="btn-check" name="flipExtraCount" id="flipExtraCount7" value="7">
+                            <label class="btn btn-outline-primary" for="flipExtraCount7">7</label>
+                            <input type="radio" class="btn-check" name="flipExtraCount" id="flipExtraCount8" value="8">
+                            <label class="btn btn-outline-primary" for="flipExtraCount8">8</label>
+                            <input type="radio" class="btn-check" name="flipExtraCount" id="flipExtraCount9" value="9">
+                            <label class="btn btn-outline-primary" for="flipExtraCount9">9</label>
+                            <input type="radio" class="btn-check" name="flipExtraCount" id="flipExtraCount10" value="10">
+                            <label class="btn btn-outline-primary" for="flipExtraCount10">10</label>
+                            <input type="radio" class="btn-check" name="flipExtraCount" id="flipExtraCount11" value="11">
+                            <label class="btn btn-outline-primary" for="flipExtraCount11">11</label>
+                        </div>
+                    </div>
+
+                    <!-- Flip target selection (oriented sticker per piece) -->
+                    <div id="flipsTargetSettings" class="ms-block mb-3">
+                        <div class="ms-header">
+                            <span class="ms-label">Flip targets</span>
+                            <span class="ms-count" data-count-for="flip-target"></span>
+                        </div>
+                        <div class="ms-actions">
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="selectAllFlipTargets()">Select All</button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="unselectAllFlipTargets()">Unselect All</button>
+                        </div>
+                        <div class="multiselect-container" id="flipTargetCheckboxes"></div>
+                    </div>
+
+                    <!-- Parity target selection (only visible when extras count is odd) -->
+                    <div id="flipsParityTargetSettings" class="ms-block hidden">
+                        <div class="ms-header">
+                            <span class="ms-label">Parity targets</span>
+                            <span class="ms-count" data-count-for="flip-parity-target"></span>
+                        </div>
+                        <div class="ms-actions">
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="selectAllFlipParityTargets()">Select All</button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="unselectAllFlipParityTargets()">Unselect All</button>
+                        </div>
+                        <div class="multiselect-container" id="flipParityTargetCheckboxes"></div>
+                    </div>
+                </div>
+
+                <!-- 2-Swap (Edge) Settings -->
+                <div id="f2eSettings" class="mt-3 parity-settings hidden">
+                    <!-- Orientation toggle -->
+                    <div class="mb-3">
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="edgeTwoSwapMode" id="edgeTwoSwapModeUnoriented" value="unoriented" checked>
+                            <label class="form-check-label" for="edgeTwoSwapModeUnoriented">Unoriented (F2E)</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="edgeTwoSwapMode" id="edgeTwoSwapModeOriented" value="oriented">
+                            <label class="form-check-label" for="edgeTwoSwapModeOriented">Oriented</label>
+                        </div>
+                    </div>
+
+                    <!-- First piece selection -->
+                    <div class="ms-block mb-3">
+                        <div class="ms-header">
+                            <span class="ms-label">First piece selection</span>
+                            <span class="ms-count" data-count-for="f2e-first-piece"></span>
+                        </div>
+                        <div class="ms-actions">
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="selectAllF2EFirstPieces()">Select All</button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="unselectAllF2EFirstPieces()">Unselect All</button>
                         </div>
                         <div class="multiselect-container" id="f2eFirstPieceCheckboxes"></div>
                     </div>
@@ -162,31 +419,34 @@
 
         <div class="card mb-3">
             <div class="card-body">
-                <p class="mb-2">Holding cube at
-                <input type="text" class="form-control d-inline-block" id="holdingOrientation" value="" size="4" style="width: 80px;">
-                rotation away from WCA orientation</p>
+                <div class="inline-fields">
+                    <div class="inline-field">
+                        <label for="numScrambles" class="form-label">Bulk count:</label>
+                        <input type="number" class="form-control" id="numScrambles" min="1" max="100" value="1" />
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div class="card mb-3">
-            <div class="card-body">
-                <label for="numScrambles" class="form-label">Number of scrambles:</label>
-                <input type="number" class="form-control" id="numScrambles" min="1" max="100" value="1" style="max-width: 150px;">
-            </div>
-        </div>
+            </div><!-- /.settings-col -->
 
-        <div class="d-flex gap-2 mb-3">
-            <button class="btn btn-primary" id="genScrambleButton" onclick="generateMultipleScrambles()">Generate Scramble</button>
-            <button class="btn btn-secondary" id="genBulkScrambleButton" onclick="generateBulkScrambles()">Generate Bulk</button>
-            <button class="btn btn-info" id="debugButton" onclick="debug()">Debug</button>
-        </div>
+            <div class="output-col">
+                <div class="output-sticky">
+                    <div class="d-flex gap-2 mb-3">
+                        <button class="btn btn-primary" id="genScrambleButton" onclick="generateScramble()">Generate Scramble</button>
+                        <button class="btn btn-secondary" id="genBulkScrambleButton" onclick="generateBulkScrambles()">Generate Bulk</button>
+                        <button class="btn btn-info" id="debugButton" onclick="debug()">Debug</button>
+                    </div>
 
-        <div id="scramble" class="alert alert-success hidden" role="alert">Scramble</div>
-        <div id="scrambleList" class="hidden"></div>
+                    <div id="scramble" class="alert alert-success hidden" role="alert">Scramble</div>
+                    <div id="scrambleList" class="hidden"></div>
 
-        <canvas id="cubeCanvas" width="1200" height="1200" class="mb-3"></canvas>
+                    <canvas id="cubeCanvas" width="1200" height="1200" class="mb-3"></canvas>
 
-        <pre id="debugText" class="alert alert-info hidden">Debug</pre>
+                    <pre id="debugText" class="alert alert-info hidden">Debug</pre>
+                </div>
+            </div><!-- /.output-col -->
+        </div><!-- /.layout-grid -->
     </div>
 
     <script>
@@ -203,17 +463,13 @@
         ];
 
         // Populate corner buffer selector
-        // Note: Currently only UFR buffer is fully supported due to algorithm table limitations
+        // Note: Currently only UFR buffer is supported
         const cornerBufferSelect = document.getElementById("cornerBufferSelect");
-        ALL_CORNERS.forEach(corner => {
+        const cornerBufferOptions = ["UFR"];
+        cornerBufferOptions.forEach(buffer => {
             const option = document.createElement("option");
-            option.value = corner[0]; // Use first orientation as canonical
-            option.textContent = corner[0];
-            // Disable non-UFR options for now
-            if (corner[0] !== "UFR") {
-                option.disabled = true;
-                option.textContent = corner[0] + " (not yet supported)";
-            }
+            option.value = buffer;
+            option.textContent = buffer;
             cornerBufferSelect.appendChild(option);
         });
 
@@ -243,6 +499,9 @@
         // Add event listener to save edge buffer selection
         edgeBufferSelect.addEventListener("change", function() {
             saveDropdownState('edgeBuffer', edgeBufferSelect.value);
+            updateEdgeParityTargetCheckboxes();
+            updateFlipTargetCheckboxes();
+            updateFlipParityTargetCheckboxes();
         });
 
         const cornerScrambleSelect = document.getElementById("cornerScrambleSelect");
@@ -256,14 +515,12 @@
 
             const cornerLabels = [
                 "Solved",
+                "Random",
                 "Comms",
                 "Parity",
-                "2-twist",
-                "Floating 2T",
-                "3-twist",
+                "Twist",
                 "LTCT",
-                "T2C",
-                "Floating 2C"
+                "2-Swap"
             ];
 
             cornerLabels.forEach(label => {
@@ -406,23 +663,31 @@
         function updateParitySettingsVisibility() {
             const selectedCornerType = cornerScrambleSelect.value;
 
+            const commsSettings = document.getElementById("commsSettings");
             const paritySettings = document.getElementById("paritySettings");
             const ltctSettings = document.getElementById("ltctSettings");
             const t2cSettings = document.getElementById("t2cSettings");
+            const twistSettings = document.getElementById("twistSettings");
 
             // Hide all settings by default
+            commsSettings.classList.add("hidden");
             paritySettings.classList.add("hidden");
             ltctSettings.classList.add("hidden");
             t2cSettings.classList.add("hidden");
+            twistSettings.classList.add("hidden");
 
             // Show relevant settings based on selection
-            if (selectedCornerType === "Parity") {
+            if (selectedCornerType === "Comms") {
+                commsSettings.classList.remove("hidden");
+            } else if (selectedCornerType === "Parity") {
                 paritySettings.classList.remove("hidden");
             } else if (selectedCornerType === "LTCT") {
                 ltctSettings.classList.remove("hidden");
                 updateLTCTModeVisibility();
-            } else if (selectedCornerType === "T2C" || selectedCornerType === "Floating 2C") {
+            } else if (selectedCornerType === "2-Swap") {
                 t2cSettings.classList.remove("hidden");
+            } else if (selectedCornerType === "Twist") {
+                twistSettings.classList.remove("hidden");
             }
         }
 
@@ -456,6 +721,167 @@
         document.getElementById("ltctModeStickers").addEventListener("change", function() {
             updateLTCTModeVisibility();
             saveDropdownState('ltctMode', 'stickers');
+        });
+
+        // Add event listeners for 2-Swap (corner) mode toggle
+        document.getElementById("twoSwapModeUnoriented").addEventListener("change", function() {
+            saveDropdownState('twoSwapMode', 'unoriented');
+        });
+        document.getElementById("twoSwapModeOriented").addEventListener("change", function() {
+            saveDropdownState('twoSwapMode', 'oriented');
+        });
+
+        // Add event listeners for 2-Swap (edge) mode toggle
+        document.getElementById("edgeTwoSwapModeUnoriented").addEventListener("change", function() {
+            saveDropdownState('edgeTwoSwapMode', 'unoriented');
+        });
+        document.getElementById("edgeTwoSwapModeOriented").addEventListener("change", function() {
+            saveDropdownState('edgeTwoSwapMode', 'oriented');
+        });
+
+        // Add event listeners for parity count toggle
+        document.getElementById("parityCount1").addEventListener("change", function() {
+            saveDropdownState('parityCount', '1');
+        });
+        document.getElementById("parityCount3").addEventListener("change", function() {
+            saveDropdownState('parityCount', '3');
+        });
+        document.getElementById("parityCount5").addEventListener("change", function() {
+            saveDropdownState('parityCount', '5');
+        });
+        document.getElementById("parityCount7").addEventListener("change", function() {
+            saveDropdownState('parityCount', '7');
+        });
+
+        // Twist mode → max twistCount: 2-twist=7, Floating 2T=6, 3-twist=6
+        function twistCountMaxForMode(mode) {
+            return mode === "2-twist" ? 7 : 6;
+        }
+
+        // Show/hide the twistCount=7 button based on selected twist mode and clamp if needed
+        function updateTwistCountVisibility() {
+            const mode = document.querySelector('input[name="twistMode"]:checked')?.value || '2-twist';
+            const max = twistCountMaxForMode(mode);
+            for (let n = 0; n <= 7; n++) {
+                const input = document.getElementById('twistCount' + n);
+                const label = document.querySelector('label[for="twistCount' + n + '"]');
+                if (!input || !label) continue;
+                const visible = n <= max;
+                input.style.display = visible ? '' : 'none';
+                label.style.display = visible ? '' : 'none';
+            }
+            // Clamp current selection if out of range
+            const current = parseInt(document.querySelector('input[name="twistCount"]:checked')?.value ?? '0');
+            if (current > max) {
+                document.getElementById('twistCount' + max).checked = true;
+                saveDropdownState('twistCount', String(max));
+            }
+        }
+
+        // Add event listeners for Twist mode toggle
+        ['2T', 'Floating2T', '3T'].forEach(suffix => {
+            const el = document.getElementById('twistMode' + suffix);
+            if (el) {
+                el.addEventListener('change', function() {
+                    saveDropdownState('twistMode', el.value);
+                    updateTwistCountVisibility();
+                });
+            }
+        });
+
+        // Add event listeners for Twist count toggle
+        for (let n = 0; n <= 7; n++) {
+            const el = document.getElementById('twistCount' + n);
+            if (el) {
+                el.addEventListener('change', function() {
+                    saveDropdownState('twistCount', el.value);
+                });
+            }
+        }
+
+        // Flip mode → max flipExtraCount: 2-flip=11, Floating 2F=10
+        function flipExtraCountMaxForMode(mode) {
+            return mode === "2-flip" ? 11 : 10;
+        }
+
+        // Show/hide the flipExtraCount=11 button based on selected flip mode and clamp if needed
+        function updateFlipExtraCountVisibility() {
+            const mode = document.querySelector('input[name="flipMode"]:checked')?.value || '2-flip';
+            const max = flipExtraCountMaxForMode(mode);
+            for (let n = 0; n <= 11; n++) {
+                const input = document.getElementById('flipExtraCount' + n);
+                const label = document.querySelector('label[for="flipExtraCount' + n + '"]');
+                if (!input || !label) continue;
+                const visible = n <= max;
+                input.style.display = visible ? '' : 'none';
+                label.style.display = visible ? '' : 'none';
+            }
+            // Clamp current selection if out of range
+            const current = parseInt(document.querySelector('input[name="flipExtraCount"]:checked')?.value ?? '0');
+            if (current > max) {
+                document.getElementById('flipExtraCount' + max).checked = true;
+                saveDropdownState('flipExtraCount', String(max));
+            }
+            if (typeof updateFlipParityPanelVisibility === 'function') {
+                updateFlipParityPanelVisibility();
+            }
+        }
+
+        // Add event listeners for Flip mode toggle
+        ['2F', 'Floating2F'].forEach(suffix => {
+            const el = document.getElementById('flipMode' + suffix);
+            if (el) {
+                el.addEventListener('change', function() {
+                    saveDropdownState('flipMode', el.value);
+                    updateFlipExtraCountVisibility();
+                });
+            }
+        });
+
+        // Add event listeners for Flip extra count toggle
+        for (let n = 0; n <= 11; n++) {
+            const el = document.getElementById('flipExtraCount' + n);
+            if (el) {
+                el.addEventListener('change', function() {
+                    saveDropdownState('flipExtraCount', el.value);
+                    updateFlipParityPanelVisibility();
+                });
+            }
+        }
+
+        // Add event listeners for edge Parity count toggle
+        ['1', '3', '5', '7', '9', '11'].forEach(n => {
+            document.getElementById('edgeParityCount' + n).addEventListener('change', function() {
+                saveDropdownState('edgeParityCount', n);
+            });
+        });
+
+        // Add event listeners for LTCT count toggle
+        document.getElementById("ltctCount1").addEventListener("change", function() {
+            saveDropdownState('ltctCount', '1');
+        });
+        document.getElementById("ltctCount3").addEventListener("change", function() {
+            saveDropdownState('ltctCount', '3');
+        });
+        document.getElementById("ltctCount5").addEventListener("change", function() {
+            saveDropdownState('ltctCount', '5');
+        });
+        document.getElementById("ltctCount7").addEventListener("change", function() {
+            saveDropdownState('ltctCount', '7');
+        });
+
+        // Add event listeners for comms count toggle
+        document.getElementById("commsCount2").addEventListener("change", function() {
+            saveDropdownState('commsCount', '2');
+        });
+        document.getElementById("commsCount4").addEventListener("change", function() {
+            saveDropdownState('commsCount', '4');
+        });
+        document.getElementById("commsCount6").addEventListener("change", function() {
+            saveDropdownState('commsCount', '6');
+        });
+        document.getElementById("commsCount8").addEventListener("change", function() {
+            saveDropdownState('commsCount', '8');
         });
 
         // Select/Unselect all functions for parity targets
@@ -659,21 +1085,150 @@
         // Initialize F2E checkboxes
         generateF2ECheckboxes();
 
-        // Function to show/hide F2E settings based on edge dropdown selection
-        function updateEdgeSettingsVisibility() {
-            const selectedEdgeType = edgeScrambleSelect.value;
-            const f2eSettings = document.getElementById("f2eSettings");
+        // Edge Parity target checkboxes — both stickers of each non-buffer edge
+        function getEdgeParityTargets(buffer) {
+            const targets = [];
+            ALL_EDGES.forEach(edge => {
+                if (edge[0] !== buffer) {
+                    edge.forEach(sticker => targets.push(sticker));
+                }
+            });
+            return targets;
+        }
 
-            // Hide all settings by default
-            f2eSettings.classList.add("hidden");
+        function updateEdgeParityTargetCheckboxes() {
+            const buffer = edgeBufferSelect.value;
+            const savedStates = {};
+            document.querySelectorAll('.edge-parity-target').forEach(cb => {
+                savedStates[cb.value] = cb.checked;
+            });
+            generateCheckboxes('edgeParityTargetCheckboxes', getEdgeParityTargets(buffer), 'edge-parity-target', savedStates);
+        }
 
-            // Show F2E settings for F2E or Floating 2E
-            if (selectedEdgeType === "F2E" || selectedEdgeType === "Floating 2E") {
-                f2eSettings.classList.remove("hidden");
+        function selectAllEdgeParityTargets() {
+            document.querySelectorAll('.edge-parity-target').forEach(checkbox => {
+                checkbox.checked = true;
+                saveCheckboxState(checkbox.id, true);
+            });
+        }
+
+        function unselectAllEdgeParityTargets() {
+            document.querySelectorAll('.edge-parity-target').forEach(checkbox => {
+                checkbox.checked = false;
+                saveCheckboxState(checkbox.id, false);
+            });
+        }
+
+        updateEdgeParityTargetCheckboxes();
+
+        // Flip target list: ONE oriented sticker per non-buffer non-parity-edge piece.
+        // Oriented sticker = EDGES[i][0] (priority U/D > F/B > L/R already encoded by EDGES order).
+        function getFlipTargets(buffer) {
+            const targets = [];
+            // Determine parity edge: UF↔UR (other index when buffer is one of them)
+            const bufferPiece = ALL_EDGES.find(e => e[0] === buffer);
+            const isUF = buffer === "UF";
+            const isUR = buffer === "UR";
+            const parityEdgePrimary = isUF ? "UR" : (isUR ? "UF" : null);
+            ALL_EDGES.forEach(edge => {
+                if (edge[0] === buffer) return;
+                if (parityEdgePrimary && edge[0] === parityEdgePrimary) return;
+                targets.push(edge[0]);
+            });
+            return targets;
+        }
+
+        // Flip parity target list: BOTH stickers of each non-buffer piece (parity edge included).
+        function getFlipParityTargets(buffer) {
+            const targets = [];
+            ALL_EDGES.forEach(edge => {
+                if (edge[0] === buffer) return;
+                edge.forEach(sticker => targets.push(sticker));
+            });
+            return targets;
+        }
+
+        function updateFlipTargetCheckboxes() {
+            const buffer = edgeBufferSelect.value;
+            const savedStates = {};
+            document.querySelectorAll('.flip-target').forEach(cb => {
+                savedStates[cb.value] = cb.checked;
+            });
+            generateCheckboxes('flipTargetCheckboxes', getFlipTargets(buffer), 'flip-target', savedStates);
+        }
+
+        function updateFlipParityTargetCheckboxes() {
+            const buffer = edgeBufferSelect.value;
+            const savedStates = {};
+            document.querySelectorAll('.flip-parity-target').forEach(cb => {
+                savedStates[cb.value] = cb.checked;
+            });
+            generateCheckboxes('flipParityTargetCheckboxes', getFlipParityTargets(buffer), 'flip-parity-target', savedStates);
+        }
+
+        function selectAllFlipTargets() {
+            document.querySelectorAll('.flip-target').forEach(cb => {
+                cb.checked = true;
+                saveCheckboxState(cb.id, true);
+            });
+        }
+
+        function unselectAllFlipTargets() {
+            document.querySelectorAll('.flip-target').forEach(cb => {
+                cb.checked = false;
+                saveCheckboxState(cb.id, false);
+            });
+        }
+
+        function selectAllFlipParityTargets() {
+            document.querySelectorAll('.flip-parity-target').forEach(cb => {
+                cb.checked = true;
+                saveCheckboxState(cb.id, true);
+            });
+        }
+
+        function unselectAllFlipParityTargets() {
+            document.querySelectorAll('.flip-parity-target').forEach(cb => {
+                cb.checked = false;
+                saveCheckboxState(cb.id, false);
+            });
+        }
+
+        updateFlipTargetCheckboxes();
+        updateFlipParityTargetCheckboxes();
+
+        // Show/hide the parity-target panel based on whether extras count is odd
+        function updateFlipParityPanelVisibility() {
+            const count = parseInt(document.querySelector('input[name="flipExtraCount"]:checked')?.value ?? '0');
+            const panel = document.getElementById('flipsParityTargetSettings');
+            if (count % 2 === 1) {
+                panel.classList.remove('hidden');
+            } else {
+                panel.classList.add('hidden');
             }
         }
 
-        const edgeLabels = ["Solved", "Comms", "UF 2F", "Floating 2F", "LTEF", "F2E", "Floating 2E"];
+        // Function to show/hide edge type-specific settings based on dropdown
+        function updateEdgeSettingsVisibility() {
+            const selectedEdgeType = edgeScrambleSelect.value;
+            const f2eSettings = document.getElementById("f2eSettings");
+            const edgeParitySettings = document.getElementById("edgeParitySettings");
+            const flipsSettings = document.getElementById("flipsSettings");
+
+            f2eSettings.classList.add("hidden");
+            edgeParitySettings.classList.add("hidden");
+            flipsSettings.classList.add("hidden");
+
+            if (selectedEdgeType === "2-Swap") {
+                f2eSettings.classList.remove("hidden");
+            } else if (selectedEdgeType === "Parity") {
+                edgeParitySettings.classList.remove("hidden");
+            } else if (selectedEdgeType === "Flips") {
+                flipsSettings.classList.remove("hidden");
+            }
+        }
+
+        const edgeLabels = ["Solved", "Random", "Comms", "Parity", "Flips", "LTEF", "2-Swap"];
         const edgeScrambleSelect = document.getElementById("edgeScrambleSelect");
 
         edgeLabels.forEach(label => {
@@ -728,9 +1283,20 @@
             // Load edge buffer dropdown
             const savedEdgeBuffer = loadDropdownState('edgeBuffer', 'UF');
             edgeBufferSelect.value = savedEdgeBuffer;
+            updateEdgeParityTargetCheckboxes();
+            updateFlipTargetCheckboxes();
+            updateFlipParityTargetCheckboxes();
 
-            // Load edge scramble type dropdown
-            const savedEdgeType = loadDropdownState('edgeScrambleType', edgeLabels[0]);
+            // Load edge scramble type dropdown (with migration from legacy UF 2F / Floating 2F)
+            const FLIP_MODE_IDS = { "2-flip": "flipMode2F", "Floating 2F": "flipModeFloating2F" };
+            const FLIP_LEGACY_TO_MODE = { "UF 2F": "2-flip", "Floating 2F": "Floating 2F" };
+            let savedEdgeType = loadDropdownState('edgeScrambleType', edgeLabels[0]);
+            if (FLIP_LEGACY_TO_MODE[savedEdgeType]) {
+                const migratedFlipMode = FLIP_LEGACY_TO_MODE[savedEdgeType];
+                savedEdgeType = "Flips";
+                saveDropdownState('edgeScrambleType', 'Flips');
+                saveDropdownState('flipMode', migratedFlipMode);
+            }
             edgeScrambleSelect.value = savedEdgeType;
 
             // Load LTCT mode
@@ -741,8 +1307,77 @@
                 document.getElementById('ltctModePieces').checked = true;
             }
 
+            // Load Twist mode (with migration from legacy cornerScrambleType values)
+            const TWIST_MODE_IDS = { "2-twist": "twistMode2T", "Floating 2T": "twistModeFloating2T", "3-twist": "twistMode3T" };
+            let savedTwistMode = loadDropdownState('twistMode', '2-twist');
+            if (savedCornerType && TWIST_MODE_IDS[savedCornerType]) {
+                savedTwistMode = savedCornerType;
+                cornerScrambleSelect.value = "Twist";
+                saveDropdownState('cornerScrambleType', 'Twist');
+                saveDropdownState('twistMode', savedTwistMode);
+            }
+            const twistModeEl = document.getElementById(TWIST_MODE_IDS[savedTwistMode] || "twistMode2T");
+            if (twistModeEl) twistModeEl.checked = true;
+
+            // Load Twist count, clamped to current mode's max
+            const savedTwistCountRaw = parseInt(loadDropdownState('twistCount', '0'));
+            const twistCountMax = twistCountMaxForMode(savedTwistMode);
+            const clampedTwistCount = Math.min(Math.max(savedTwistCountRaw, 0), twistCountMax);
+            document.getElementById('twistCount' + clampedTwistCount).checked = true;
+            if (clampedTwistCount !== savedTwistCountRaw) {
+                saveDropdownState('twistCount', String(clampedTwistCount));
+            }
+            updateTwistCountVisibility();
+
+            // Load 2-Swap mode (corners)
+            const savedTwoSwapMode = loadDropdownState('twoSwapMode', 'unoriented');
+            if (savedTwoSwapMode === 'oriented') {
+                document.getElementById('twoSwapModeOriented').checked = true;
+            } else {
+                document.getElementById('twoSwapModeUnoriented').checked = true;
+            }
+
+            // Load edge 2-Swap mode
+            const savedEdgeTwoSwapMode = loadDropdownState('edgeTwoSwapMode', 'unoriented');
+            if (savedEdgeTwoSwapMode === 'oriented') {
+                document.getElementById('edgeTwoSwapModeOriented').checked = true;
+            } else {
+                document.getElementById('edgeTwoSwapModeUnoriented').checked = true;
+            }
+
+            // Load Flip mode
+            const savedFlipMode = loadDropdownState('flipMode', '2-flip');
+            const flipModeEl = document.getElementById(FLIP_MODE_IDS[savedFlipMode] || "flipMode2F");
+            if (flipModeEl) flipModeEl.checked = true;
+
+            // Load Flip extra count, clamped to current mode's max
+            const savedFlipExtraCountRaw = parseInt(loadDropdownState('flipExtraCount', '0'));
+            const flipExtraMax = flipExtraCountMaxForMode(savedFlipMode);
+            const clampedFlipExtraCount = Math.min(Math.max(savedFlipExtraCountRaw, 0), flipExtraMax);
+            document.getElementById('flipExtraCount' + clampedFlipExtraCount).checked = true;
+            if (clampedFlipExtraCount !== savedFlipExtraCountRaw) {
+                saveDropdownState('flipExtraCount', String(clampedFlipExtraCount));
+            }
+            updateFlipExtraCountVisibility();
+
+            // Load parity count
+            const savedParityCount = loadDropdownState('parityCount', '7');
+            document.getElementById('parityCount' + savedParityCount).checked = true;
+
+            // Load comms count
+            const savedCommsCount = loadDropdownState('commsCount', '8');
+            document.getElementById('commsCount' + savedCommsCount).checked = true;
+
+            // Load LTCT count
+            const savedLtctCount = loadDropdownState('ltctCount', '7');
+            document.getElementById('ltctCount' + savedLtctCount).checked = true;
+
+            // Load edge Parity count
+            const savedEdgeParityCount = loadDropdownState('edgeParityCount', '11');
+            document.getElementById('edgeParityCount' + savedEdgeParityCount).checked = true;
+
             // Load checkbox states after checkboxes are generated
-            document.querySelectorAll('.parity-target, .ltct-parity-target, .ltct-twist-target, .ltct2-parity-target, .ltct2-twist-target').forEach(checkbox => {
+            document.querySelectorAll('.parity-target, .ltct-parity-target, .ltct-twist-target, .ltct2-parity-target, .ltct2-twist-target, .edge-parity-target, .flip-target, .flip-parity-target').forEach(checkbox => {
                 const saved = loadCheckboxState(checkbox.id, true);
                 checkbox.checked = saved;
             });
@@ -750,7 +1385,47 @@
             // Update visibility of parity settings after loading
             updateParitySettingsVisibility();
             updateEdgeSettingsVisibility();
+            updateFlipParityPanelVisibility();
+
+            // Initialize multiselect summary counts
+            updateAllMultiselectCounts();
         }
+
+        // Update the count badge in each <details> summary
+        function updateMultiselectCount(classPrefix) {
+            const checkboxes = document.querySelectorAll('.' + classPrefix);
+            const total = checkboxes.length;
+            const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
+            document.querySelectorAll('[data-count-for="' + classPrefix + '"]').forEach(el => {
+                el.textContent = checked + ' / ' + total;
+                el.classList.toggle('ms-count-partial', checked !== total && checked !== 0);
+                el.classList.toggle('ms-count-empty', checked === 0);
+            });
+        }
+
+        function updateAllMultiselectCounts() {
+            ['parity-target', 'ltct-parity-target', 'ltct-twist-target',
+             'ltct2-parity-target', 'ltct2-twist-target',
+             't2c-first-piece', 'f2e-first-piece',
+             'edge-parity-target',
+             'flip-target', 'flip-parity-target'].forEach(updateMultiselectCount);
+        }
+
+        // Listen for any checkbox change inside multiselect containers, recompute counts
+        document.addEventListener('change', function (e) {
+            if (e.target && e.target.matches && e.target.matches('.multiselect-container input[type="checkbox"]')) {
+                updateAllMultiselectCounts();
+            }
+        });
+
+        // Select All / Unselect All buttons don't dispatch change events on checkboxes,
+        // so recompute counts on click of any button inside a .ms-actions row.
+        document.addEventListener('click', function (e) {
+            if (e.target && e.target.closest && e.target.closest('.ms-actions')) {
+                // Defer so the underlying handler runs first
+                setTimeout(updateAllMultiselectCounts, 0);
+            }
+        });
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', loadAllCheckboxStates);
@@ -764,6 +1439,31 @@
             }
         });
 
+        document.getElementById('themeToggle').addEventListener('click', function () {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        });
+
+        // Settings visibility toggle (mobile-only via CSS, but state persists for both)
+        (function () {
+            const settingsToggle = document.getElementById('settingsToggle');
+            const settingsCol = document.querySelector('.settings-col');
+
+            function applySettingsHidden(hidden) {
+                settingsCol.classList.toggle('settings-hidden', hidden);
+                settingsToggle.setAttribute('aria-pressed', hidden ? 'false' : 'true');
+            }
+
+            const saved = localStorage.getItem('settingsHidden') === 'true';
+            applySettingsHidden(saved);
+
+            settingsToggle.addEventListener('click', function () {
+                const nowHidden = !settingsCol.classList.contains('settings-hidden');
+                applySettingsHidden(nowHidden);
+                localStorage.setItem('settingsHidden', nowHidden ? 'true' : 'false');
+            });
+        })();
+
     </script>
 
     <script src="cube.js"></script>
@@ -773,6 +1473,7 @@
     <script src="bldAlgs.js"></script>
     <script src="helpers.js"></script>
     <script src="visualCube.js"></script>
+    <script src="dlin.js"></script>
     <script src="gen.js"></script>
     <script src="main.js"></script>
 </body>
