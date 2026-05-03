@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3BLD Scrambler</title>
+    <meta name="theme-color" content="#024e7d" />
+    <script>
+        // Set theme before first paint to avoid light→dark flash on load.
+        (function () {
+            try {
+                var stored = JSON.parse(localStorage.getItem('themeMode'));
+                document.documentElement.setAttribute('data-theme', stored === 'light' ? 'light' : 'dark');
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+
+    <!-- Scramble engine: classic scripts that set up Cube/VisualCube globals.
+         Loaded before the React module so window.initScrambler / generateScramble
+         are available when React calls them. -->
+    <script src="./scramble/cube.js"></script>
+    <script src="./scramble/solve.js"></script>
+    <script src="./scramble/alg_jison.js"></script>
+    <script src="./scramble/alg.js"></script>
+    <script src="./scramble/bldAlgs.js"></script>
+    <script src="./scramble/helpers.js"></script>
+    <script src="./scramble/visualCube.js"></script>
+    <script src="./scramble/dlin.js"></script>
+    <script src="./scramble/gen.js"></script>
+    <script src="./scramble/main.js"></script>
+
+    <!-- BLD Helper libraries (cstimer). Module + require shim is intentionally
+         introduced AFTER the 3bld libs because cube.js uses a UMD check that
+         suppresses globals when `module` is defined. -->
+    <script>
+        var module = { exports: {} };
+        var exports = module.exports;
+        var _modules = {};
+        function require(name) {
+            var modName = name.replace('./', '').replace('.js', '');
+            return _modules[modName];
+        }
+    </script>
+    <script src="./scramble/isaac.js"></script>
+    <script>_modules.isaac = isaac;</script>
+    <script src="./scramble/mathlib.js"></script>
+    <script>_modules.mathlib = mathlib;</script>
+    <script src="./scramble/cubeutil.js"></script>
+    <script>_modules.cubeutil = cubeutil;</script>
+    <script src="./scramble/min2phase.js"></script>
+    <script>_modules.min2phase = min2phase;</script>
+    <script src="./scramble/bldhelper.js"></script>
+  <script type="module" crossorigin src="./assets/index-Be1zusX0.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-Dgbh_fQv.css">
+</head>
+<body>
+    <div id="root"></div>
+</body>
+</html>
