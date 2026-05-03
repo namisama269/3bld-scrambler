@@ -4,6 +4,5 @@ node_modules/
 .claude/
 CLAUDE.md
 dist/
-docs/.vite/
 __pycache__/
 *.pyc
