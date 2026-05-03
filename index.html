@@ -24,16 +24,16 @@
     <!-- Scramble engine: classic scripts that set up Cube/VisualCube globals.
          Loaded before the React module so window.initScrambler / generateScramble
          are available when React calls them. -->
-    <script src="/scramble/cube.js"></script>
-    <script src="/scramble/solve.js"></script>
-    <script src="/scramble/alg_jison.js"></script>
-    <script src="/scramble/alg.js"></script>
-    <script src="/scramble/bldAlgs.js"></script>
-    <script src="/scramble/helpers.js"></script>
-    <script src="/scramble/visualCube.js"></script>
-    <script src="/scramble/dlin.js"></script>
-    <script src="/scramble/gen.js"></script>
-    <script src="/scramble/main.js"></script>
+    <script src="./scramble/cube.js"></script>
+    <script src="./scramble/solve.js"></script>
+    <script src="./scramble/alg_jison.js"></script>
+    <script src="./scramble/alg.js"></script>
+    <script src="./scramble/bldAlgs.js"></script>
+    <script src="./scramble/helpers.js"></script>
+    <script src="./scramble/visualCube.js"></script>
+    <script src="./scramble/dlin.js"></script>
+    <script src="./scramble/gen.js"></script>
+    <script src="./scramble/main.js"></script>
 
     <!-- BLD Helper libraries (cstimer). Module + require shim is intentionally
          introduced AFTER the 3bld libs because cube.js uses a UMD check that
@@ -47,18 +47,18 @@
             return _modules[modName];
         }
     </script>
-    <script src="/scramble/isaac.js"></script>
+    <script src="./scramble/isaac.js"></script>
     <script>_modules.isaac = isaac;</script>
-    <script src="/scramble/mathlib.js"></script>
+    <script src="./scramble/mathlib.js"></script>
     <script>_modules.mathlib = mathlib;</script>
-    <script src="/scramble/cubeutil.js"></script>
+    <script src="./scramble/cubeutil.js"></script>
     <script>_modules.cubeutil = cubeutil;</script>
-    <script src="/scramble/min2phase.js"></script>
+    <script src="./scramble/min2phase.js"></script>
     <script>_modules.min2phase = min2phase;</script>
-    <script src="/scramble/bldhelper.js"></script>
+    <script src="./scramble/bldhelper.js"></script>
 </head>
 <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <script type="module" src="./src/main.jsx"></script>
 </body>
 </html>
