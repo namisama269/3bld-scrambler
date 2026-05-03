@@ -1,99 +1,116 @@
-Cube.initSolver();
-const cube = new Cube();
-const canvas = document.getElementById('cubeCanvas');
-const ctx = canvas.getContext('2d');
+// Module-level state. Initialized lazily via window.initScrambler(canvas) so
+// the React app can mount the canvas and wire callbacks before any cube ops.
+let cube = null;
+let vc = null;
+let ctx = null;
+let canvas = null;
+let holdingOrientationKey = 'wg';
+let debugString = '';
 
-// const cornerLabels = ["Solved", "Comms", "Parity", "UFR 2T", "Floating 2T", "UFR 3T", "LTCT", "T2C", "Floating 2C"];
-// const edgeLabels = ["Solved", "Comms", "UF 2F", "Floating 2F", "LTEF", "F2E", "Floating 2E"];
-
-let vc = new VisualCube(1200, 1200, 360, -0.523598, -0.209439, 0, 3, 0.08);
-// vc.drawInside = true;
-
-const holdingOrientation = document.getElementById('holdingOrientation');
-
-let debugString = "";
-
-// Check if the parity edge (UF or UR, whichever is not the buffer) is solved
-// Solved means: top sticker is U, and side sticker is F or R
-// Cube string format: 54 chars - U(0-8), R(9-17), F(18-26), D(27-35), L(36-44), B(45-53)
-// UF edge: position 7 (U face) and position 19 (F face)
-// UR edge: position 5 (U face) and position 10 (R face)
-function isParityEdgeSolved(cubeStr, edgeBuffer) {
-    if (edgeBuffer === "UF") {
-        // Buffer is UF, so parity edge is UR - check positions 5 and 10
-        const top = cubeStr[5];
-        const side = cubeStr[10];
-        return top === 'U' && (side === 'F' || side === 'R');
-    } else {
-        // Buffer is UR (or other), so parity edge is UF - check positions 7 and 19
-        const top = cubeStr[7];
-        const side = cubeStr[19];
-        return top === 'U' && (side === 'F' || side === 'R');
-    }
+function ensureInit() {
+    if (cube && vc && ctx) return;
+    throw new Error('Scrambler not initialized — call window.initScrambler(canvas) first.');
 }
 
-function getOrientationMoves() {
-    return ORIENTATION_MOVES[holdingOrientation.value] || '';
-}
-
-document.addEventListener("DOMContentLoaded", function() {
-    // Populate orientation dropdown
-    Object.entries(ORIENTATION_OPTIONS).forEach(([key, label]) => {
-        const opt = document.createElement('option');
-        opt.value = key;
-        opt.textContent = label;
-        holdingOrientation.appendChild(opt);
-    });
-
-    // Restore saved value, migrating legacy raw-moves strings to the matching key
-    const savedValue = localStorage.getItem('holdingOrientation');
-    if (savedValue !== null && ORIENTATION_OPTIONS[savedValue]) {
-        holdingOrientation.value = savedValue;
-    } else if (savedValue !== null) {
-        const trimmed = savedValue.trim();
-        const match = Object.entries(ORIENTATION_MOVES).find(([, moves]) => moves === trimmed);
-        const key = match ? match[0] : 'wg';
-        holdingOrientation.value = key;
-        localStorage.setItem('holdingOrientation', key);
-    } else {
-        holdingOrientation.value = 'wg';
-    }
-
-    holdingOrientation.addEventListener('change', function() {
-        localStorage.setItem('holdingOrientation', holdingOrientation.value);
-    });
-
+window.initScrambler = function (canvasEl, opts = {}) {
+    if (!canvasEl) throw new Error('initScrambler: canvas element is required');
+    Cube.initSolver();
+    cube = new Cube();
+    canvas = canvasEl;
+    ctx = canvasEl.getContext('2d');
+    vc = new VisualCube(1200, 1200, 360, -0.523598, -0.209439, 0, 3, 0.08);
+    if (opts.holdingOrientation) holdingOrientationKey = opts.holdingOrientation;
+    cube.identity();
     cube.move(getOrientationMoves());
     vc.cubeString = cube.asString();
     vc.drawCube(ctx);
-});
+};
 
-function handleCheckboxToggle() {
-    const useRestrictedMemo = isRestrictedMemoChecked();
-    // console.log('Restricted Memo Toggled:', useRestrictedMemo);
-    if (useRestrictedMemo) {
-        restrictedMemoStickerIndices.forEach((index) => { 
-        vc.cubeString = setCharAt(vc.cubeString, index, 'r');
-        });
-        // vc.cubeString = "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr";
-    } else {
+window.setHoldingOrientation = function (key) {
+    holdingOrientationKey = key;
+    if (cube && vc && ctx) {
+        cube.identity();
+        cube.move(getOrientationMoves());
         vc.cubeString = cube.asString();
+        vc.drawCube(ctx);
     }
-    // console.log(vc.cubeString);
+};
+
+// Paint a 54-char URFDLB facelet string directly on the shared canvas.
+// Used by the BLD Helper tab, which builds its own scramble via cubeutil
+// and just needs to render the resulting cube state.
+window.renderFaceletString = function (facelet) {
+    if (!vc || !ctx) return;
+    vc.cubeString = facelet;
     vc.drawCube(ctx);
+};
+
+// Cube string format: 54 chars — U(0-8) R(9-17) F(18-26) D(27-35) L(36-44) B(45-53).
+// UF edge stickers: indices 7 (U face) + 19 (F face).
+// UR edge stickers: indices 5 (U face) + 10 (R face).
+function isParityEdgeSolved(cubeStr, edgeBuffer) {
+    if (edgeBuffer === 'UF') {
+        return cubeStr[5] === 'U' && (cubeStr[10] === 'F' || cubeStr[10] === 'R');
+    }
+    return cubeStr[7] === 'U' && (cubeStr[19] === 'F' || cubeStr[19] === 'R');
 }
 
+function getOrientationMoves() {
+    return ORIENTATION_MOVES[holdingOrientationKey] || '';
+}
 
-function resetCube() {
-    cube.identity();
-    vc.cubeString = cube.asString();
-    vc.drawCube(ctx);
+function buildScrambleConfig(options) {
+    const c = options.config || {};
+    return {
+        cornerBuffer: c.cornerBuffer || 'UFR',
+        edgeBuffer: c.edgeBuffer || 'UF',
+        cornerScrambleType: c.cornerScrambleType || 'Solved',
+        edgeScrambleType: c.edgeScrambleType || 'Solved',
+        cornerTargetCount: c.cornerTargetCount ?? 8,
+        parityTargets: c.parityTargets || [],
+        paritySpecialTargets: c.paritySpecialTargets || [],
+        cornerTwistCount: c.cornerTwistCount ?? 2,
+        cornerTwistExtraCount: c.cornerTwistExtraCount ?? 0,
+        cornerTwistDirection: c.cornerTwistDirection || 'mixed',
+        cornerTwistTargets: c.cornerTwistTargets || [],
+        ltctMode: c.ltctMode || 'pieces',
+        ltctCount: c.ltctCount ?? 7,
+        ltctParityTargets: c.ltctParityTargets || [],
+        ltctTwistTargets: c.ltctTwistTargets || [],
+        ltct2ParityTargets: c.ltct2ParityTargets || [],
+        ltct2TwistTargets: c.ltct2TwistTargets || [],
+        twoSwapMode: c.twoSwapMode || 'unoriented',
+        t2cFirstPieces: c.t2cFirstPieces || [],
+        t2cOnlyLaterBuffers: !!c.t2cOnlyLaterBuffers,
+        edgeParityCount: c.edgeParityCount ?? 11,
+        edgeParityTargets: c.edgeParityTargets || [],
+        flipExtraCount: c.flipExtraCount ?? 0,
+        flipCustomCount: c.flipCustomCount ?? 2,
+        flipTargets: c.flipTargets || [],
+        flipParityTargets: c.flipParityTargets || [],
+        edgeTwoSwapMode: c.edgeTwoSwapMode || 'unoriented',
+        f2eFirstPieces: c.f2eFirstPieces || [],
+        f2eOnlyLaterBuffers: !!c.f2eOnlyLaterBuffers,
+        f2eExtraCount: c.f2eExtraCount ?? 6,
+        edgeTargetCount: c.edgeTargetCount ?? 12,
+        f2eBufferOrder: c.f2eBufferOrder || ['UB', 'UL', 'FR', 'FL', 'DF', 'DB', 'DR', 'DL', 'BR', 'BL'],
+        floatingTargetCount: c.floatingTargetCount ?? 4,
+        floatingBuffers: c.floatingBuffers || [],
+        floatingDistribution: c.floatingDistribution || 'equal',
+        floatingCornerTargetCount: c.floatingCornerTargetCount ?? 4,
+        floatingCornerBuffers: c.floatingCornerBuffers || [],
+        floatingCornerDistribution: c.floatingCornerDistribution || 'equal',
+        cornerBufferOrder: c.cornerBufferOrder || ['UFR', 'UFL', 'UBR', 'UBL', 'DFR', 'DFL', 'DBR', 'DBL'],
+        edgeBufferOrder: c.edgeBufferOrder || ['UF', 'UR', 'UB', 'UL', 'FR', 'FL', 'DF', 'DB', 'DR', 'DL'],
+    };
 }
 
 // generate scramble
 
 function generateScramble(options = {}) {
+    ensureInit();
     const { silent = false } = options;
+    const cfg = buildScrambleConfig(options);
     const log = silent ? () => {} : (...args) => console.log(...args);
     const addDebugLine = silent ? () => {} : (line) => {
         debugString += line + "\n";
@@ -103,26 +120,85 @@ function generateScramble(options = {}) {
     cube.identity();
     if (!silent) {
         debugString = "";
-        const debugElement = document.getElementById('debugText');
-        if (debugElement) {
-            debugElement.classList.add('hidden');
-        }
     }
 
-    const cornerBufferSelect = document.getElementById("cornerBufferSelect");
-    const cornerScrambleSelect = document.getElementById("cornerScrambleSelect");
-    const edgeScrambleSelect = document.getElementById("edgeScrambleSelect");
+    // Capture every alg fed to cube.move during scramble construction so the
+    // debug log can show the full applied execution. Restore in `finally`.
+    // Each push records `{alg, label}` — label resolves from a reverse-lookup
+    // of named tables first, falling back to the contextual label set by the
+    // surrounding code via `_ctxLabel`.
+    const appliedAlgs = [];
+    let _ctxLabel = '';
+    const _algLookup = (() => {
+        const map = new Map();
+        if (typeof Jb_PERM !== 'undefined') map.set(Jb_PERM.trim(), 'Jb perm');
+        if (typeof UF_UR_FLIP !== 'undefined') map.set(UF_UR_FLIP.trim(), 'UF/UR flip (parity edge fix)');
+        if (typeof PARITY_UR_X_UFR_UBR !== 'undefined') {
+            for (const [target, alg] of Object.entries(PARITY_UR_X_UFR_UBR)) {
+                if (alg) map.set(alg.trim(), `Edge parity (UR → ${target})`);
+            }
+        }
+        if (typeof PARITY_UF_X_UFR_UBR !== 'undefined') {
+            for (const [target, alg] of Object.entries(PARITY_UF_X_UFR_UBR)) {
+                if (alg) map.set(alg.trim(), `Edge parity (UF → ${target})`);
+            }
+        }
+        if (typeof PARITY_UF_UR_UFR_X !== 'undefined') {
+            for (const [target, alg] of Object.entries(PARITY_UF_UR_UFR_X)) {
+                if (alg) map.set(alg.trim(), `Corner parity (UFR → ${target})`);
+            }
+        }
+        return map;
+    })();
+    const origMove = cube.move.bind(cube);
+    cube.move = function (alg) {
+        const trimmed = (alg || '').trim();
+        if (trimmed) {
+            // Call-site context wins over the table lookup — same alg string can
+            // serve different roles (e.g. Jb perm vs corner parity (UFR→UBR)).
+            const label = _ctxLabel || _algLookup.get(trimmed) || 'Generated alg';
+            appliedAlgs.push({ alg: trimmed, label });
+        }
+        return origMove(alg);
+    };
 
-    const cornerBuffer = cornerBufferSelect ? cornerBufferSelect.value : "UFR";
+    let scramble;
+    try {
 
-    // Validate that buffer is UFR - other buffers not fully supported yet
+    const cornerBuffer = cfg.cornerBuffer;
     if (cornerBuffer !== "UFR") {
         console.warn("Non-UFR buffers are not fully supported yet. Some scramble types may not work correctly.");
     }
-    let cornerScrambleType = cornerScrambleSelect.value || "Solved";
-    let edgeScrambleType = edgeScrambleSelect.value || "Solved";
-    const edgeBufferSelect = document.getElementById("edgeBufferSelect");
-    const edgeBuffer = edgeBufferSelect ? edgeBufferSelect.value : "UF";
+    let cornerScrambleType = cfg.cornerScrambleType;
+    let edgeScrambleType = cfg.edgeScrambleType;
+    const edgeBuffer = cfg.edgeBuffer;
+
+    // Edge "Targets" is the merged Comms+Parity entry — dispatch to the
+    // appropriate underlying branch based on count parity. cfg.edgeTargetCount
+    // is the unified target count, mirrored into the legacy fields here.
+    if (edgeScrambleType === 'Targets') {
+        const targetCount = cfg.edgeTargetCount ?? 12;
+        if (targetCount % 2 === 1) {
+            edgeScrambleType = 'Parity';
+            cfg.edgeParityCount = targetCount;
+        } else {
+            edgeScrambleType = 'Comms';
+            cfg.edgeCommsCount = targetCount;
+        }
+    }
+
+    // Corner "Targets" is the merged Comms+Parity entry — same dispatch as
+    // edges, against cfg.cornerTargetCount.
+    if (cornerScrambleType === 'Targets') {
+        const targetCount = cfg.cornerTargetCount ?? 8;
+        if (targetCount % 2 === 1) {
+            cornerScrambleType = 'Parity';
+            cfg.parityCount = targetCount;
+        } else {
+            cornerScrambleType = 'Comms';
+            cfg.commsCount = targetCount;
+        }
+    }
     log("Corner buffer: " + cornerBuffer);
     addDebugLine("Corner buffer: " + cornerBuffer);
     log("Edge buffer: " + edgeBuffer);
@@ -164,7 +240,7 @@ function generateScramble(options = {}) {
     }
     else if (cornerScrambleType == "Comms") {
         // Get comms count setting (2, 4, 6, or 8)
-        const commsCount = parseInt(document.querySelector('input[name="commsCount"]:checked')?.value || '8');
+        const commsCount = cfg.commsCount;
 
         let cycleTargets = [];
         let remainingTargets = [];
@@ -191,10 +267,7 @@ function generateScramble(options = {}) {
             }
 
             // No cycle, just generate random targets for the pieces we're using
-            for (let i of piecesToUse) {
-                const ori = Math.floor(Math.random() * 3);
-                remainingTargets.push(CORNERS[i][ori]);
-            }
+            remainingTargets = randomTargetsForPieces(piecesToUse, true);
         } else {
             // Full 8 targets: use original cycle logic
             // Randomly select 2-7 pieces for the cycle
@@ -210,10 +283,7 @@ function generateScramble(options = {}) {
             cycleTargets = generateIsolatedCycle(cyclePieces, cycleFirstTarget, orientationNumber);
 
             // Generate random targets for remaining pieces
-            for (let i of leftoverPieces) {
-                const ori = Math.floor(Math.random() * 3);
-                remainingTargets.push(CORNERS[i][ori]);
-            }
+            remainingTargets = randomTargetsForPieces(leftoverPieces, true);
         }
 
         log("Comms (count=" + commsCount + "): cycleTargets=" + cycleTargets.join(" "));
@@ -221,29 +291,27 @@ function generateScramble(options = {}) {
         addDebugLine("Comms (count=" + commsCount + "): cycleTargets=" + cycleTargets.join(" "));
         addDebugLine("Comms (count=" + commsCount + "): remainingTargets=" + remainingTargets.join(" "));
 
-        // Apply cube state: parity alg for each target
-        for (let target of cycleTargets) {
+        // Apply cube state: parity alg for each target. Tag cycle vs
+        // remaining so the Applied-algs footer keeps the structure visible.
+        const cycN = cycleTargets.length;
+        cycleTargets.forEach((target, i) => {
+            _ctxLabel = "Corner Comms cycle " + (i + 1) + "/" + cycN + " (target=" + target + ")";
             cube.move(generateParityAlg("UF", "UR", "UFR", target));
-        }
-        for (let target of remainingTargets) {
+        });
+        const remN = remainingTargets.length;
+        remainingTargets.forEach((target, i) => {
+            _ctxLabel = "Corner Comms remaining " + (i + 1) + "/" + remN + " (target=" + target + ")";
             cube.move(generateParityAlg("UF", "UR", "UFR", target));
-        }
+        });
+        _ctxLabel = '';
 
         // Clear cornerPieces since we've handled all corners
         cornerPieces = [];
     }
     else if (cornerScrambleType == "Parity") {
         // Get parity count setting (1, 3, 5, or 7)
-        const parityCount = parseInt(document.querySelector('input[name="parityCount"]:checked')?.value || '7');
-
-        // Get selected parity targets
-        const selectedParityTargets = [];
-        const parityTargetCheckboxes = document.querySelectorAll('.parity-target');
-        parityTargetCheckboxes.forEach(checkbox => {
-            if (checkbox.checked) {
-                selectedParityTargets.push(checkbox.value);
-            }
-        });
+        const parityCount = cfg.parityCount;
+        const selectedParityTargets = [...cfg.parityTargets];
 
         // If no targets selected, fall back to all targets
         let parityTarget;
@@ -290,7 +358,7 @@ function generateScramble(options = {}) {
     else if (cornerScrambleType == "ParitySpecial") {
         // Get selected parity special targets
         const selectedParitySpecialTargets = [];
-        const paritySpecialTargetCheckboxes = document.querySelectorAll('.parity-special-target');
+        const paritySpecialTargetCheckboxes = (cfg.paritySpecialTargets || []).map((v) => ({ checked: true, value: v }));
         paritySpecialTargetCheckboxes.forEach(checkbox => {
             if (checkbox.checked) {
                 selectedParitySpecialTargets.push(checkbox.value);
@@ -314,48 +382,145 @@ function generateScramble(options = {}) {
         log("Corner parity: " + parityTarget);
         addDebugLine("Corner parity: " + parityTarget);
     }
-    else if (cornerScrambleType == "Twist") {
-        const twistMode = document.querySelector('input[name="twistMode"]:checked')?.value || '2-twist';
-        const twistCount = parseInt(document.querySelector('input[name="twistCount"]:checked')?.value || '0');
-        const shuffledCornerPieces = shuffleArray(cornerPieces);
-
-        if (twistMode === "2-twist") {
-            const ori = Math.floor(Math.random() * 2) + 1;
-            const twist = CORNERS[shuffledCornerPieces[0]][ori];
-            cornerPieces = cornerPieces.filter(x => x != shuffledCornerPieces[0]);
-
-            cube.move(invertMoves(generateCOAlg([twist])));
-            log("2-twist: " + twist);
-            addDebugLine("2-twist: " + twist);
-        } else if (twistMode === "Floating 2T") {
-            const ori1 = Math.floor(Math.random() * 2) + 1;
-            const ori2 = 3 - ori1;
-            const twist1 = CORNERS[shuffledCornerPieces[0]][ori1];
-            const twist2 = CORNERS[shuffledCornerPieces[1]][ori2];
-            cornerPieces = cornerPieces.filter(x => x != shuffledCornerPieces[0] && x != shuffledCornerPieces[1]);
-
-            cube.move(invertMoves(generateCOAlg([twist1])));
-            cube.move(invertMoves(generateCOAlg([twist2])));
-            log("Floating 2-twist: " + twist1 + " " + twist2);
-            addDebugLine("Floating 2-twist: " + twist1 + " " + twist2);
-        } else if (twistMode === "3-twist") {
-            const ori = Math.floor(Math.random() * 2) + 1;
-            const twist1 = CORNERS[shuffledCornerPieces[0]][ori];
-            const twist2 = CORNERS[shuffledCornerPieces[1]][ori];
-            cornerPieces = cornerPieces.filter(x => x != shuffledCornerPieces[0] && x != shuffledCornerPieces[1]);
-
-            cube.move(invertMoves(generateCOAlg([twist1])));
-            cube.move(invertMoves(generateCOAlg([twist2])));
-            log("3-twist: " + twist1 + " " + twist2);
-            addDebugLine("3-twist: " + twist1 + " " + twist2);
+    else if (cornerScrambleType == "Floating") {
+        // Mirrors the edge Floating logic: pick a floating corner buffer F
+        // (multi-select + Equal/Weighted distribution), then chain corner
+        // J-perm setups so F + N targets form the cycle. Note that the
+        // corner J-perm alg PARITY_UF_UR_UFR_X is a 3-cycle (UFR UBR target)
+        // rather than a clean 2-cycle, so chains will involve UBR. The
+        // active corner buffer (UFR) is solved at the end.
+        const cornerOrder = cfg.cornerBufferOrder || [];
+        // Position 0 (main corner buffer) hidden — Floating means non-main.
+        const floatingPool = cornerOrder.slice(1, -2);
+        const candidates = (cfg.floatingCornerBuffers || []).filter(p => floatingPool.includes(p));
+        if (candidates.length === 0) {
+            throw new Error("Corner Floating: at least one corner buffer must be selected");
         }
 
-        // Apply extra parity-style targets on remaining pieces.
-        // Pieces left aside stay untouched (no targets emitted).
-        if (twistCount > 0) {
-            const extras = generateTwistExtras(cornerPieces, twistCount);
+        // Keep in sync with CORNER_WEIGHTS in src/constants.js.
+        const FLOATING_CORNER_WEIGHTS = [378, 270, 180, 108, 54, 18];
+        const distribution = cfg.floatingCornerDistribution === 'weighted' ? 'weighted' : 'equal';
+        let floatingBuffer;
+        if (distribution === 'weighted') {
+            const weights = candidates.map(p => FLOATING_CORNER_WEIGHTS[cornerOrder.indexOf(p)] || 0);
+            const total = weights.reduce((a, b) => a + b, 0);
+            if (total <= 0) {
+                floatingBuffer = candidates[Math.floor(Math.random() * candidates.length)];
+            } else {
+                let r = Math.random() * total;
+                let pickIdx = candidates.length - 1;
+                for (let i = 0; i < candidates.length; i++) {
+                    r -= weights[i];
+                    if (r < 0) { pickIdx = i; break; }
+                }
+                floatingBuffer = candidates[pickIdx];
+            }
+        } else {
+            floatingBuffer = candidates[Math.floor(Math.random() * candidates.length)];
+        }
+
+        const floatingIdx = cornerOrder.indexOf(floatingBuffer);
+        const laterPieceNames = cornerOrder.slice(floatingIdx + 1);
+        const cyclePool = laterPieceNames
+            .map(name => CORNERS.findIndex(c => c[0] === name))
+            .filter(idx => idx >= 0 && cornerPieces.includes(idx));
+
+        let N;
+        if (candidates.length > 1) {
+            N = cyclePool.length - (cyclePool.length % 2); // BT default
+        } else {
+            const requestedN = Math.max(1, cfg.floatingCornerTargetCount ?? 4);
+            N = Math.min(requestedN, cyclePool.length);
+            if (N < requestedN) {
+                log("Corner Floating: clamped target count from " + requestedN + " to " + N);
+                addDebugLine("Corner Floating: clamped target count from " + requestedN + " to " + N);
+            }
+        }
+
+        const otherPieceIndices = shuffleArray([...cyclePool]).slice(0, N);
+        const otherTargets = otherPieceIndices.map(idx => CORNERS[idx][Math.floor(Math.random() * 3)]);
+
+        const isActiveAsFloating = floatingBuffer === cornerBuffer;
+        let seq;
+        if (isActiveAsFloating) {
+            seq = otherTargets;
+        } else {
+            const F_target = CORNERS[CORNERS.findIndex(c => c[0] === floatingBuffer)][Math.floor(Math.random() * 3)];
+            seq = [F_target, ...otherTargets, F_target];
+        }
+
+        log("Corner Floating: floatingBuffer=" + floatingBuffer + " (distribution=" + distribution + ", from " + candidates.length + ") seq=" + seq.join(" "));
+        addDebugLine("Corner Floating: floatingBuffer=" + floatingBuffer + " (distribution=" + distribution + ", from " + candidates.length + ") seq=" + seq.join(" "));
+
+        seq.forEach((target, i) => {
+            _ctxLabel = "Corner Floating " + (i + 1) + "/" + seq.length + " (target=" + target + ")";
+            cube.move(generateParityAlg("UF", "UR", "UFR", target));
+        });
+        _ctxLabel = '';
+
+        cornerPieces = [];
+    }
+    else if (cornerScrambleType == "Twist") {
+        // N = number of non-buffer corners to twist. Each picked piece gets a
+        // random orientation 1 or 2 (CW or CCW). The buffer's CO is auto-set
+        // by the alg composition: Σ orientations ≡ 0 mod 3 across all corners.
+        const N = Math.max(1, Math.min(7, cfg.cornerTwistCount ?? 2));
+        const extraCount = Math.max(0, Math.min(7 - N, cfg.cornerTwistExtraCount ?? 0));
+        const direction = cfg.cornerTwistDirection || 'mixed';
+
+        // Restrict twist candidates to the user's selection (primary stickers
+        // like 'UFL', 'UBR', …). Empty selection falls back to all non-buffer
+        // pieces — the React-side validator already requires selected ≥ N.
+        const twistTargetSet = new Set(cfg.cornerTwistTargets);
+        const eligibleCornerPieces = twistTargetSet.size > 0
+            ? cornerPieces.filter((i) => twistTargetSet.has(CORNERS[i][0]))
+            : cornerPieces;
+        const shuffledCornerPieces = shuffleArray([...eligibleCornerPieces]);
+        const twistedPieces = shuffledCornerPieces.slice(0, N);
+
+        // Decide each twisted piece's orientation (1=CW or 2=CCW) per the
+        // direction setting:
+        //   - N=1: random.
+        //   - 'same' (N≥2): pick one direction at random; all pieces use it.
+        //   - 'mixed' (N≥2): pick 2 random pieces, force one CW and one CCW;
+        //     remaining pieces stay random.
+        const oris = new Array(N);
+        if (N === 1 || direction === 'same') {
+            const fixedOri = N === 1
+                ? Math.floor(Math.random() * 2) + 1
+                : Math.floor(Math.random() * 2) + 1;
+            for (let i = 0; i < N; i++) oris[i] = fixedOri;
+            if (N >= 2 && direction !== 'same') {
+                // unreachable — kept for safety
+            }
+        } else {
+            // mixed
+            const indices = shuffleArray(Array.from({ length: N }, (_, i) => i));
+            const cwIdx = indices[0];
+            const ccwIdx = indices[1];
+            for (let i = 0; i < N; i++) {
+                if (i === cwIdx) oris[i] = 1;
+                else if (i === ccwIdx) oris[i] = 2;
+                else oris[i] = Math.floor(Math.random() * 2) + 1;
+            }
+        }
+        const twistTargets = twistedPieces.map((idx, i) => CORNERS[idx][oris[i]]);
+        cornerPieces = cornerPieces.filter((idx) => !twistedPieces.includes(idx));
+
+        twistTargets.forEach((twist, i) => {
+            _ctxLabel = "Corner CO twist " + (i + 1) + "/" + N + " (target=" + twist + ")";
+            cube.move(invertMoves(generateCOAlg([twist])));
+        });
+        _ctxLabel = '';
+
+        const dirLabel = N === 1 ? 'random' : direction;
+        log("Custom " + N + "-twist (direction=" + dirLabel + "): " + twistTargets.join(" "));
+        addDebugLine("Custom " + N + "-twist (direction=" + dirLabel + "): " + twistTargets.join(" "));
+
+        // Extras: cycle / leftover-target on the remaining (7 − N) non-buffer pool.
+        if (extraCount > 0) {
+            const extras = generateTwistExtras(cornerPieces, extraCount);
             const allTargets = [...extras.prefixTargets, ...extras.cycleTargets];
-            // Apply prefix in 2C order (third, second, first) for n+1 split, then cycle targets
             if (extras.prefixTargets.length === 3) {
                 cube.move(generateParityAlg("UF", "UR", "UFR", extras.prefixTargets[2]));
                 cube.move(generateParityAlg("UF", "UR", "UFR", extras.prefixTargets[1]));
@@ -364,13 +529,13 @@ function generateScramble(options = {}) {
             for (const target of extras.cycleTargets) {
                 cube.move(generateParityAlg("UF", "UR", "UFR", target));
             }
-            log("Twist extras (count=" + twistCount + "): " + allTargets.join(" ") +
+            log("Twist extras (count=" + extraCount + "): " + allTargets.join(" ") +
                 (extras.leftoverPieceIndices.length > 0
-                    ? " | leftover=" + extras.leftoverPieceIndices.map(i => CORNERS[i][0]).join(",")
+                    ? " | leftover=" + extras.leftoverPieceIndices.map((i) => CORNERS[i][0]).join(",")
                     : ""));
-            addDebugLine("Twist extras (count=" + twistCount + "): " + allTargets.join(" ") +
+            addDebugLine("Twist extras (count=" + extraCount + "): " + allTargets.join(" ") +
                 (extras.leftoverPieceIndices.length > 0
-                    ? " | leftover=" + extras.leftoverPieceIndices.map(i => CORNERS[i][0]).join(",")
+                    ? " | leftover=" + extras.leftoverPieceIndices.map((i) => CORNERS[i][0]).join(",")
                     : ""));
         }
         // Clear cornerPieces so the main comms loop doesn't process leftovers
@@ -378,28 +543,13 @@ function generateScramble(options = {}) {
     }
     else if (cornerScrambleType == "LTCT") {
         // Check LTCT mode: pieces or stickers
-        const ltctMode = document.querySelector('input[name="ltctMode"]:checked').value;
-        const ltctCount = parseInt(document.querySelector('input[name="ltctCount"]:checked')?.value || '7');
+        const ltctMode = cfg.ltctMode;
+        const ltctCount = cfg.ltctCount;
 
         if (ltctMode === "stickers") {
             // Stickers mode: use generateLTCT with specific targets
-            // Get selected LTCT parity targets
-            const selectedLTCTParityTargets = [];
-            const ltctParityTargetCheckboxes = document.querySelectorAll('.ltct-parity-target');
-            ltctParityTargetCheckboxes.forEach(checkbox => {
-                if (checkbox.checked) {
-                    selectedLTCTParityTargets.push(checkbox.value);
-                }
-            });
-
-            // Get selected LTCT twist targets
-            const selectedLTCTTwistTargets = [];
-            const ltctTwistTargetCheckboxes = document.querySelectorAll('.ltct-twist-target');
-            ltctTwistTargetCheckboxes.forEach(checkbox => {
-                if (checkbox.checked) {
-                    selectedLTCTTwistTargets.push(checkbox.value);
-                }
-            });
+            const selectedLTCTParityTargets = [...cfg.ltctParityTargets];
+            const selectedLTCTTwistTargets = [...cfg.ltctTwistTargets];
 
             // Helper function to check if two targets are on the same piece
             const isSamePiece = (target1, target2) => {
@@ -445,7 +595,9 @@ function generateScramble(options = {}) {
 
             // Apply cube state:
             // 1. Do twist with CO alg
+            _ctxLabel = "LTCT corner CO twist (target=" + result.twist + ")";
             cube.move(invertMoves(generateCOAlg([result.twist])));
+            _ctxLabel = '';
             // 2. Do parity for each target in the cycle
             for (let target of result.targets) {
                 cube.move(generateParityAlg("UF", "UR", "UFR", target));
@@ -456,23 +608,8 @@ function generateScramble(options = {}) {
             }
         } else {
             // Pieces mode: use generateLTCT2 with piece indices
-            // Get selected LTCT parity pieces (U/D stickers)
-            const selectedLTCTParityPieces = [];
-            const ltctParityTargetCheckboxes = document.querySelectorAll('.ltct2-parity-target');
-            ltctParityTargetCheckboxes.forEach(checkbox => {
-                if (checkbox.checked) {
-                    selectedLTCTParityPieces.push(checkbox.value);
-                }
-            });
-
-            // Get selected LTCT twist pieces (U/D stickers)
-            const selectedLTCTTwistPieces = [];
-            const ltctTwistTargetCheckboxes = document.querySelectorAll('.ltct2-twist-target');
-            ltctTwistTargetCheckboxes.forEach(checkbox => {
-                if (checkbox.checked) {
-                    selectedLTCTTwistPieces.push(checkbox.value);
-                }
-            });
+            const selectedLTCTParityPieces = [...cfg.ltct2ParityTargets];
+            const selectedLTCTTwistPieces = [...cfg.ltct2TwistTargets];
 
             // Get lists of possible piece indices
             const parityPieceIndices = selectedLTCTParityPieces.length > 0
@@ -512,7 +649,9 @@ function generateScramble(options = {}) {
 
             // Apply cube state:
             // 1. Do twist with CO alg
+            _ctxLabel = "LTCT corner CO twist (target=" + result.twist + ")";
             cube.move(invertMoves(generateCOAlg([result.twist])));
+            _ctxLabel = '';
             // 2. Do parity for each target in the cycle
             for (let target of result.targets) {
                 cube.move(generateParityAlg("UF", "UR", "UFR", target));
@@ -537,7 +676,9 @@ function generateScramble(options = {}) {
         let twist = CORNERS[shuffledCornerPieces[0]][twistOri];
         cornerPieces = cornerPieces.filter(x => x != shuffledCornerPieces[0]);
 
+        _ctxLabel = "LTCT corner CO twist (target=" + twist + ")";
         cube.move(invertMoves(generateCOAlg([twist])));
+        _ctxLabel = '';
         cube.move(generateParityAlg("UF", "UR", "UFR", parity));
         log("LTCT: " + parity + "[" + twist + "]");
         addDebugLine("LTCT: " + parity + "[" + twist + "]");
@@ -554,7 +695,9 @@ function generateScramble(options = {}) {
         let twist = CORNERS[shuffledCornerPieces[0]][twistOri];
         cornerPieces = cornerPieces.filter(x => x != shuffledCornerPieces[0]);
 
+        _ctxLabel = "LTCT corner CO twist (target=" + twist + ")";
         cube.move(invertMoves(generateCOAlg([twist])));
+        _ctxLabel = '';
         cube.move(generateParityAlg("UF", "UR", "UFR", parity));
         log("LTCT: " + parity + "[" + twist + "]");
         addDebugLine("LTCT: " + parity + "[" + twist + "]");
@@ -564,12 +707,12 @@ function generateScramble(options = {}) {
         const T2C_BUFFER_ORDER = ["UFL", "UBR", "UBL", "DFR", "DFL", "DBL", "DBR"];
 
         // Check 2-Swap mode: unoriented (T2C) or oriented (Floating 2C)
-        const twoSwapMode = document.querySelector('input[name="twoSwapMode"]:checked')?.value || 'unoriented';
+        const twoSwapMode = cfg.twoSwapMode;
         const isOriented = twoSwapMode === 'oriented';
 
         // Get selected first piece targets
         const selectedT2CFirstPieces = [];
-        const t2cFirstPieceCheckboxes = document.querySelectorAll('.t2c-first-piece');
+        const t2cFirstPieceCheckboxes = cfg.t2cFirstPieces.map((v) => ({ checked: true, value: v }));
         t2cFirstPieceCheckboxes.forEach(checkbox => {
             if (checkbox.checked) {
                 selectedT2CFirstPieces.push(checkbox.value);
@@ -577,7 +720,7 @@ function generateScramble(options = {}) {
         });
 
         // Check if "Only select later buffers" is enabled
-        const onlyLaterBuffers = document.getElementById('t2cOnlyLaterBuffers')?.checked || false;
+        const onlyLaterBuffers = cfg.t2cOnlyLaterBuffers;
 
         // Get list of possible first piece indices
         const firstPieceIndices = selectedT2CFirstPieces.length > 0
@@ -657,18 +800,13 @@ function generateScramble(options = {}) {
     else if (edgeScrambleType == "Parity") {
         // Mirror of corner Parity: pick one parity target, leave (11 - count) edges aside,
         // remaining edges fall through to the edge comms loop below.
-        const edgeParityCount = parseInt(document.querySelector('input[name="edgeParityCount"]:checked')?.value || '11');
+        const edgeParityCount = cfg.edgeParityCount;
 
         const bufferPieceIndex = EDGES.findIndex(piece => piece.includes(edgeBuffer));
-        const selectedEdgeParityTargets = [];
-        document.querySelectorAll('.edge-parity-target').forEach(checkbox => {
-            if (checkbox.checked) {
-                // Defense: never allow a sticker on the buffer's piece as a parity target
-                const stickerPieceIndex = EDGES.findIndex(piece => piece.includes(checkbox.value));
-                if (stickerPieceIndex !== bufferPieceIndex) {
-                    selectedEdgeParityTargets.push(checkbox.value);
-                }
-            }
+        const selectedEdgeParityTargets = cfg.edgeParityTargets.filter(v => {
+            // Defense: never allow a sticker on the buffer's piece as a parity target
+            const stickerPieceIndex = EDGES.findIndex(piece => piece.includes(v));
+            return stickerPieceIndex !== bufferPieceIndex;
         });
 
         let parityTarget;
@@ -718,68 +856,74 @@ function generateScramble(options = {}) {
         }
     }
     else if (edgeScrambleType == "Comms") {
-        // Randomly select 2-11 pieces for the cycle
-        const numCyclePieces = Math.floor(Math.random() * 10) + 2;
+        // Edge Comms count = total target J-perms.
+        //   count < 12: pick `count` unique non-buffer pieces, one J-perm per
+        //     piece with a random sticker. No cycle-break, no piece visited
+        //     twice. Leftover pieces stay solved.
+        //   count = 12: legacy behavior — random isolated cycle of 2-11
+        //     pieces + remaining targets for leftover, totaling 12.
+        const commsCount = cfg.edgeCommsCount;
+        let cycleTargets = [];
+        let remainingTargets = [];
 
-        // Shuffle and split into cycle pieces and remaining pieces
-        const shuffledPieces = shuffleArray([...edgePieces]);
-        const cyclePieces = shuffledPieces.slice(0, numCyclePieces);
-        const leftoverPieces = shuffledPieces.slice(numCyclePieces);
+        if (commsCount === 0) {
+            // nothing
+        } else if (commsCount < edgePieces.length + 1) {
+            const shuffledPieces = shuffleArray([...edgePieces]);
+            const piecesToUse = shuffledPieces.slice(0, commsCount);
+            remainingTargets = randomTargetsForPieces(piecesToUse, false);
+        } else {
+            const numCyclePieces = Math.floor(Math.random() * 10) + 2; // 2-11
+            const shuffledPieces = shuffleArray([...edgePieces]);
+            const cyclePieces = shuffledPieces.slice(0, numCyclePieces);
+            const leftoverPieces = shuffledPieces.slice(numCyclePieces);
 
-        // Generate isolated cycle with random first target and orientation
-        const cycleFirstTargetOri = Math.floor(Math.random() * 2);
-        const cycleFirstTarget = EDGES[cyclePieces[0]][cycleFirstTargetOri];
-        const orientationNumber = Math.floor(Math.random() * 2);
-        const cycleTargets = generateIsolatedCycle(cyclePieces, cycleFirstTarget, orientationNumber);
+            const cycleFirstTargetOri = Math.floor(Math.random() * 2);
+            const cycleFirstTarget = EDGES[cyclePieces[0]][cycleFirstTargetOri];
+            const orientationNumber = Math.floor(Math.random() * 2);
+            cycleTargets = generateIsolatedCycle(cyclePieces, cycleFirstTarget, orientationNumber);
 
-        // Generate random targets for remaining pieces
-        const remainingTargets = [];
-        for (let i of leftoverPieces) {
-            const ori = Math.floor(Math.random() * 2);
-            remainingTargets.push(EDGES[i][ori]);
+            remainingTargets = randomTargetsForPieces(leftoverPieces, false);
         }
 
-        log("Edge Comms: cycleTargets=" + cycleTargets.join(" "));
-        log("Edge Comms: remainingTargets=" + remainingTargets.join(" "));
-        addDebugLine("Edge Comms: cycleTargets=" + cycleTargets.join(" "));
-        addDebugLine("Edge Comms: remainingTargets=" + remainingTargets.join(" "));
+        log("Edge Comms (count=" + commsCount + "): cycleTargets=" + cycleTargets.join(" "));
+        log("Edge Comms (count=" + commsCount + "): remainingTargets=" + remainingTargets.join(" "));
+        addDebugLine("Edge Comms (count=" + commsCount + "): cycleTargets=" + cycleTargets.join(" "));
+        addDebugLine("Edge Comms (count=" + commsCount + "): remainingTargets=" + remainingTargets.join(" "));
 
-        // Apply cube state: parity alg for each target based on buffer
-        for (let target of cycleTargets) {
+        const eCycN = cycleTargets.length;
+        cycleTargets.forEach((target, i) => {
+            _ctxLabel = "Edge Comms cycle " + (i + 1) + "/" + eCycN + " (target=" + target + ")";
             cube.move(getEdgeParityAlg(edgeBuffer, target));
-        }
-        for (let target of remainingTargets) {
+        });
+        const eRemN = remainingTargets.length;
+        remainingTargets.forEach((target, i) => {
+            _ctxLabel = "Edge Comms remaining " + (i + 1) + "/" + eRemN + " (target=" + target + ")";
             cube.move(getEdgeParityAlg(edgeBuffer, target));
-        }
+        });
+        _ctxLabel = '';
 
-        // Clear edgePieces since we've handled all edges
         edgePieces = [];
     }
     else if (edgeScrambleType == "Flips") {
-        const flipMode = document.querySelector('input[name="flipMode"]:checked')?.value || '2-flip';
-        const flipExtraCount = parseInt(document.querySelector('input[name="flipExtraCount"]:checked')?.value || '0');
+        const flipExtraCount = cfg.flipExtraCount;
         const parityEdgeIndex = edgeBufferIndex === 0 ? 2 : 0;
-        const flipCountByMode = (flipMode === "2-flip") ? 1 : 2;
+        // K = number of generateEOAlg([target], buffer) calls. Each call flips
+        // one non-buffer target + toggles the buffer, so the buffer ends
+        // flipped iff K is odd — even K means K non-buffer flips; odd K
+        // silently adds the buffer for parity.
+        const flipCountByMode = Math.max(1, Math.min(11, cfg.flipCustomCount));
         const oddExtras = flipExtraCount % 2 === 1;
 
         // Pool of eligible flip pieces (exclude buffer + parity edge).
         const flipCandidates = edgePieces.filter(i => i !== parityEdgeIndex);
 
-        // Read user-selected flip-target stickers → set of eligible flip pieces.
-        // Each flip-target sticker corresponds to one piece (the oriented sticker).
-        const selectedFlipStickers = new Set();
-        document.querySelectorAll('.flip-target').forEach(cb => {
-            if (cb.checked) selectedFlipStickers.add(cb.value);
-        });
+        const selectedFlipStickers = new Set(cfg.flipTargets);
         const eligibleFlipPieces = (selectedFlipStickers.size === 0)
             ? flipCandidates
             : flipCandidates.filter(i => selectedFlipStickers.has(EDGES[i][0]));
 
-        // Read user-selected flip-parity-target stickers (any sticker on any non-buffer piece).
-        const selectedParityStickers = [];
-        document.querySelectorAll('.flip-parity-target').forEach(cb => {
-            if (cb.checked) selectedParityStickers.push(cb.value);
-        });
+        const selectedParityStickers = [...cfg.flipParityTargets];
         const eligibleParityStickers = (selectedParityStickers.length === 0)
             ? edgePieces.flatMap(i => EDGES[i])
             : selectedParityStickers;
@@ -790,17 +934,21 @@ function generateScramble(options = {}) {
         //   - parityTargetSticker (only when oddExtras): on a piece NOT in flipPieces and not buffer
         //   - enough remaining pieces to fill the rest of the extras count
         const validCombos = [];
-        const flipPieceCombos = (flipCountByMode === 1)
-            ? eligibleFlipPieces.map(p => [p])
-            : (() => {
-                const pairs = [];
-                for (let a = 0; a < eligibleFlipPieces.length; a++) {
-                    for (let b = a + 1; b < eligibleFlipPieces.length; b++) {
-                        pairs.push([eligibleFlipPieces[a], eligibleFlipPieces[b]]);
-                    }
+        const flipPieceCombos = (function () {
+            const k = flipCountByMode;
+            if (k === 0) return [[]];
+            if (k > eligibleFlipPieces.length) return [];
+            const out = [];
+            (function rec(start, combo) {
+                if (combo.length === k) { out.push(combo.slice()); return; }
+                for (let i = start; i < eligibleFlipPieces.length; i++) {
+                    combo.push(eligibleFlipPieces[i]);
+                    rec(i + 1, combo);
+                    combo.pop();
                 }
-                return pairs;
-            })();
+            })(0, []);
+            return out;
+        })();
 
         for (const fp of flipPieceCombos) {
             // Pieces remaining for extras after flips removed
@@ -856,22 +1004,18 @@ function generateScramble(options = {}) {
             ? ((edgeBuffer === "UF") ? "UR" : "UF")
             : edgeBuffer;
 
-        if (flipMode === "2-flip") {
-            const fpIdx = chosen.flipPieces[0];
-            const flipSticker = EDGES[fpIdx][0];
-            edgePieces = edgePieces.filter(x => x !== fpIdx);
-            cube.move(generateEOAlg([flipSticker], flipBuffer));
-            log("2-flip: " + flipSticker + " (flipBuffer=" + flipBuffer + ")");
-            addDebugLine("2-flip: " + flipSticker + " (flipBuffer=" + flipBuffer + ")");
-        } else {
-            const [a, b] = chosen.flipPieces;
-            const fs1 = EDGES[a][0], fs2 = EDGES[b][0];
-            edgePieces = edgePieces.filter(x => x !== a && x !== b);
-            cube.move(generateEOAlg([fs1], flipBuffer));
-            cube.move(generateEOAlg([fs2], flipBuffer));
-            log("Floating 2-flip: " + fs1 + " " + fs2 + " (flipBuffer=" + flipBuffer + ")");
-            addDebugLine("Floating 2-flip: " + fs1 + " " + fs2 + " (flipBuffer=" + flipBuffer + ")");
+        const flipPiecesChosen = chosen.flipPieces;
+        const flipStickers = flipPiecesChosen.map(idx => EDGES[idx][0]);
+        const flipPieceSet = new Set(flipPiecesChosen);
+        edgePieces = edgePieces.filter(x => !flipPieceSet.has(x));
+        for (const sticker of flipStickers) {
+            _ctxLabel = "Edge EO flip (sticker=" + sticker + ", buffer=" + flipBuffer + ")";
+            cube.move(generateEOAlg([sticker], flipBuffer));
         }
+        _ctxLabel = '';
+        const flipLogLabel = flipCountByMode + "-flip";
+        log(flipLogLabel + ": " + flipStickers.join(" ") + " (flipBuffer=" + flipBuffer + ")");
+        addDebugLine(flipLogLabel + ": " + flipStickers.join(" ") + " (flipBuffer=" + flipBuffer + ")");
 
         // Apply extras (count > 0).
         if (flipExtraCount > 0) {
@@ -970,34 +1114,126 @@ function generateScramble(options = {}) {
         log("LTEF: " + lt + "[" + ef + "]");
         addDebugLine("LTEF: " + lt + "[" + ef + "]");
     }
-    else if (edgeScrambleType == "2-Swap") {
-        // Buffer order for "Only select later buffers" option
-        const F2E_BUFFER_ORDER = ["UB", "UL", "FR", "FL", "DF", "DR", "DL", "DB", "BR", "BL"];
+    else if (edgeScrambleType == "Floating") {
+        // Floating cycle: produce a closed cycle on (N+1) edge pieces that
+        // does NOT pass through the active buffer. Implemented by chaining
+        // J-perm setups: J(buf,X1) J(buf,X2) … J(buf,X_{N+1}) J(buf,X1) leaves
+        // the active buffer solved and creates a cycle on {X1..X_{N+1}}.
+        // X1 is the "floating buffer" the user picked from the buffer order.
+        // Single-select Floating: user picks ONE buffer F at position ≥ 1 of
+        // the buffer order. F is the pivot; the cycle pool is everything
+        // strictly after F. The chain
+        //   J(activeBuf, F) J(activeBuf, T_1) … J(activeBuf, T_N) J(activeBuf, F)
+        // produces an (N+1)-cycle around F, with the active buffer solved.
+        const edgeOrder = cfg.edgeBufferOrder || [];
+        // Floating pool: positions 1..last-2. Position 0 (main buffer) is
+        // hidden because Floating means "not the main buffer".
+        const floatingPool = edgeOrder.slice(1, -2);
+        const candidates = (cfg.floatingBuffers || []).filter(p => floatingPool.includes(p));
+        if (candidates.length === 0) {
+            throw new Error("Floating: at least one floating buffer must be selected");
+        }
+        // Distribution: 'equal' → uniform pick; 'weighted' → pick proportional
+        // to the # of (1st, 2nd) sticker-pair cases at each buffer position.
+        // Weights are indexed by position in edgeBufferOrder. Keep in sync
+        // with EDGE_WEIGHTS in src/constants.js.
+        const FLOATING_EDGE_WEIGHTS = [440, 360, 288, 224, 168, 120, 80, 48, 24, 8];
+        const distribution = cfg.floatingDistribution === 'weighted' ? 'weighted' : 'equal';
+        let floatingBuffer;
+        if (distribution === 'weighted') {
+            const weights = candidates.map(p => FLOATING_EDGE_WEIGHTS[edgeOrder.indexOf(p)] || 0);
+            const total = weights.reduce((a, b) => a + b, 0);
+            if (total <= 0) {
+                floatingBuffer = candidates[Math.floor(Math.random() * candidates.length)];
+            } else {
+                let r = Math.random() * total;
+                let pickIdx = candidates.length - 1;
+                for (let i = 0; i < candidates.length; i++) {
+                    r -= weights[i];
+                    if (r < 0) { pickIdx = i; break; }
+                }
+                floatingBuffer = candidates[pickIdx];
+            }
+        } else {
+            floatingBuffer = candidates[Math.floor(Math.random() * candidates.length)];
+        }
+        const floatingIdx = edgeOrder.indexOf(floatingBuffer);
 
-        // Check edge 2-Swap mode toggle (unoriented = F2E, oriented = Floating 2E)
-        const edgeTwoSwapMode = document.querySelector('input[name="edgeTwoSwapMode"]:checked')?.value || 'unoriented';
+        const laterPieceNames = edgeOrder.slice(floatingIdx + 1);
+        const cyclePool = laterPieceNames
+            .map(name => EDGES.findIndex(e => e[0] === name))
+            .filter(idx => idx >= 0 && edgePieces.includes(idx));
+        // Multi-select: target count is fixed per pick at buffer-trainer's
+        // default — evenize(laterCount) — so each scramble has a sensible
+        // size for whichever buffer was chosen.
+        // Single-select: honor the user's chosen target count, capped to
+        // what's available.
+        let N;
+        if (candidates.length > 1) {
+            N = cyclePool.length - (cyclePool.length % 2); // evenize
+        } else {
+            const requestedN = Math.max(1, cfg.floatingTargetCount ?? 4);
+            N = Math.min(requestedN, cyclePool.length);
+            if (N < requestedN) {
+                log("Edge Floating: clamped target count from " + requestedN + " to " + N + " (only " + cyclePool.length + " later buffers after " + floatingBuffer + ")");
+                addDebugLine("Edge Floating: clamped target count from " + requestedN + " to " + N);
+            }
+        }
+
+        const otherPieceIndices = shuffleArray([...cyclePool]).slice(0, N);
+        const otherTargets = otherPieceIndices.map(idx => EDGES[idx][Math.floor(Math.random() * 2)]);
+
+        // Two cases for the J-perm chain:
+        //   (a) floating buffer == active buffer: the chain is just
+        //       J(buf, T_1) … J(buf, T_N), producing a cycle through buf
+        //       and N targets. (No J(buf, buf) — the alg table doesn't
+        //       define one, and it isn't needed here.)
+        //   (b) floating buffer != active buffer: wrap with J(buf, F) on
+        //       both ends so the active buffer ends solved, and the cycle
+        //       sits on F + the targets.
+        const isActiveAsFloating = floatingBuffer === edgeBuffer;
+        let seq;
+        if (isActiveAsFloating) {
+            seq = otherTargets;
+        } else {
+            const F_target = EDGES[EDGES.findIndex(e => e[0] === floatingBuffer)][Math.floor(Math.random() * 2)];
+            seq = [F_target, ...otherTargets, F_target];
+        }
+
+        log("Edge Floating: floatingBuffer=" + floatingBuffer + " (distribution=" + distribution + ", from " + candidates.length + ") seq=" + seq.join(" "));
+        addDebugLine("Edge Floating: floatingBuffer=" + floatingBuffer + " (distribution=" + distribution + ", from " + candidates.length + ") seq=" + seq.join(" "));
+
+        seq.forEach((target, i) => {
+            _ctxLabel = "Floating cycle " + (i + 1) + "/" + seq.length + " (target=" + target + ")";
+            cube.move(getEdgeParityAlg(edgeBuffer, target));
+        });
+        _ctxLabel = '';
+
+        edgePieces = [];
+    }
+    else if (edgeScrambleType == "2-Swap") {
+        // Buffer order for "Only select later buffers" — follows the user's
+        // configured edge buffer order (minus UF/UR) so it stays consistent
+        // with what the multiselect UI shows.
+        const F2E_BUFFER_ORDER = cfg.f2eBufferOrder;
+
+        const edgeTwoSwapMode = cfg.edgeTwoSwapMode;
         const isOriented = edgeTwoSwapMode === 'oriented';
 
         // Determine parity edge index (UF=0 or UR=2, whichever is not the buffer)
         const parityEdgeIndex = edgeBufferIndex === 0 ? 2 : 0;
 
-        // Get selected first piece targets
-        const selectedF2EFirstPieces = [];
-        const f2eFirstPieceCheckboxes = document.querySelectorAll('.f2e-first-piece');
-        f2eFirstPieceCheckboxes.forEach(checkbox => {
-            if (checkbox.checked) {
-                selectedF2EFirstPieces.push(checkbox.value);
-            }
-        });
+        const selectedF2EFirstPieces = [...cfg.f2eFirstPieces];
+        const onlyLaterBuffers = cfg.f2eOnlyLaterBuffers;
 
-        // Check if "Only select later buffers" is enabled
-        const onlyLaterBuffers = document.getElementById('f2eOnlyLaterBuffers')?.checked || false;
-
-        // Get list of possible first piece indices (exclude buffer and parity edge)
+        // First piece candidates: exclude only the active buffer. The parity
+        // edge ("second buffer") IS allowed as a first piece per the user's
+        // updated UI. The legacy extras=10 path (handled in generate2E) is
+        // already aware of this via its `usedPieces` check.
         const firstPieceIndices = selectedF2EFirstPieces.length > 0
             ? selectedF2EFirstPieces.map(p => EDGES.findIndex(piece => piece[0] === p))
-                .filter(i => i !== parityEdgeIndex)
-            : edgePieces.filter(i => i !== parityEdgeIndex);
+                .filter(i => i >= 0 && i !== edgeBufferIndex)
+            : edgePieces;
 
         // Randomly select a first piece
         const firstPieceIndex = firstPieceIndices[Math.floor(Math.random() * firstPieceIndices.length)];
@@ -1017,29 +1253,40 @@ function generateScramble(options = {}) {
             availableSecondPieceIndices = edgePieces.filter(i => i !== parityEdgeIndex && i !== firstPieceIndex);
         }
 
-        // Generate 2-Swap result (isOriented: thirdTarget = firstTarget, else thirdTarget = flipped sticker)
-        const result = generate2E(firstPieceIndex, availableSecondPieceIndices, isOriented, edgeBufferIndex);
+        // Generate 2-Swap result. extraCount controls cycle size — must be
+        // even, else the cycle parity cancels the 2-Swap.
+        const result = generate2E(firstPieceIndex, availableSecondPieceIndices, isOriented, edgeBufferIndex, cfg.f2eExtraCount);
         const modeLabel = isOriented ? "2-Swap (Oriented)" : "2-Swap (F2E)";
         log(modeLabel + ": firstTarget=" + result.firstTarget + " secondTarget=" + result.secondTarget + " thirdTarget=" + result.thirdTarget);
         log(modeLabel + ": cycleTargets=" + result.cycleTargets.join(" "));
-        log(modeLabel + ": remainingTargets=" + result.remainingTargets.join(" "));
         addDebugLine(modeLabel + ": firstTarget=" + result.firstTarget + " secondTarget=" + result.secondTarget + " thirdTarget=" + result.thirdTarget);
         addDebugLine(modeLabel + ": cycleTargets=" + result.cycleTargets.join(" "));
-        addDebugLine(modeLabel + ": remainingTargets=" + result.remainingTargets.join(" "));
 
-        // Apply Jb perm first (UF UR UFL UBR parity)
+        // Apply Jb perm first (UF UR UFL UBR parity), then 2-Swap setup
+        // (third, second, first), then the cycle. Each step gets a labeled
+        // _ctxLabel so the debug footer reads cleanly.
+        _ctxLabel = "2-Swap: Jb perm";
         cube.move(Jb_PERM);
-
-        // Apply cube state: parity alg for each target in order (third, second, first)
+        _ctxLabel = "2-Swap setup: third target = " + result.thirdTarget;
         cube.move(getEdgeParityAlg(edgeBuffer, result.thirdTarget));
+        _ctxLabel = "2-Swap setup: second target = " + result.secondTarget;
         cube.move(getEdgeParityAlg(edgeBuffer, result.secondTarget));
+        _ctxLabel = "2-Swap setup: first target = " + result.firstTarget;
         cube.move(getEdgeParityAlg(edgeBuffer, result.firstTarget));
-        for (let target of result.cycleTargets) {
+        const totalCycle = result.cycleTargets.length;
+        result.cycleTargets.forEach((target, i) => {
+            _ctxLabel = "2-Swap extra " + (i + 1) + "/" + totalCycle + " (target=" + target + ")";
             cube.move(getEdgeParityAlg(edgeBuffer, target));
-        }
-        for (let target of result.remainingTargets) {
+        });
+        // Legacy 2-Swap (extras=10) also emits remainingTargets for the
+        // leftover pieces + parity edge. New extras values (2/4/6/8) leave
+        // remainingTargets empty.
+        const totalRemaining = (result.remainingTargets || []).length;
+        result.remainingTargets.forEach((target, i) => {
+            _ctxLabel = "2-Swap remaining " + (i + 1) + "/" + totalRemaining + " (target=" + target + ")";
             cube.move(getEdgeParityAlg(edgeBuffer, target));
-        }
+        });
+        _ctxLabel = '';
 
         // Clear edgePieces since we've handled all edges
         edgePieces = [];
@@ -1087,7 +1334,9 @@ function generateScramble(options = {}) {
         // Reset cube and apply the combined state
         cube.identity();
         const finalCube = Cube.fromString(combinedCubeStr);
+        _ctxLabel = "Random edge state (solve-inverse)";
         cube.move(invertMoves(finalCube.solve()));
+        _ctxLabel = '';
 
         // Clear edgePieces since we've handled all edges
         edgePieces = [];
@@ -1119,8 +1368,10 @@ function generateScramble(options = {}) {
     //     addDebugLine("Double-Parity correction: " + otherEdgeBuffer + "/UFR-UBR with edge target " + correctionTarget);
     // }
 
-    // Check if parity edge is solved (only for 2-Swap edge mode)
-    if (edgeScrambleType == "2-Swap") {
+    // Parity-edge fix: only applies on the legacy extras=10 path. The
+    // 2/4/6/8 paths don't need it (they don't touch the parity edge in a
+    // way that requires this corrective flip).
+    if (edgeScrambleType == "2-Swap" && cfg.f2eExtraCount === 10) {
         const cubeState = cube.asString();
         const parityEdgeSolved = isParityEdgeSolved(cubeState, edgeBuffer);
         log("2-Swap: cubeState=" + cubeState);
@@ -1132,26 +1383,41 @@ function generateScramble(options = {}) {
         addDebugLine("2-Swap: UR check: pos5=" + cubeState[5] + " pos10=" + cubeState[10]);
         addDebugLine("2-Swap: parityEdgeSolved=" + parityEdgeSolved);
 
-        // If parity edge is solved, apply UF_UR_FLIP to make it unsolved
         if (parityEdgeSolved) {
+            _ctxLabel = "Parity edge fix (UF/UR flip)";
             cube.move(UF_UR_FLIP);
+            _ctxLabel = '';
             log("2-Swap: Applied UF_UR_FLIP to make parity edge unsolved");
             addDebugLine("2-Swap: Applied UF_UR_FLIP to make parity edge unsolved");
         }
     }
 
     // get the scramble and do in correct orientation
-    let scramble = invertMoves(cube.solve());
+    scramble = invertMoves(cube.solve());
+    } finally {
+        cube.move = origMove;
+    }
+
+    // Footer: list every alg applied during scramble construction so the
+    // user can paste/verify the exec independently of cube.solve().
+    if (appliedAlgs.length > 0) {
+        addDebugLine("");
+        addDebugLine("Applied algs:");
+        appliedAlgs.forEach((entry, i) => {
+            const labelPart = entry.label ? entry.label + ': ' : '';
+            addDebugLine("  " + (i + 1) + ". " + labelPart + entry.alg);
+        });
+        // Concatenated single-line exec — useful for paste/diff but visually
+        // noisy in the debug pill. Kept commented for future re-enabling.
+        // addDebugLine("");
+        // addDebugLine("Full applied exec: " + appliedAlgs.map((e) => e.alg).join(" "));
+    }
+
     cube.identity();
     cube.move(getOrientationMoves());
     cube.move(scramble);
 
     if (!silent) {
-        const scrambleText = document.getElementById('scramble');
-        if (scrambleText) {
-            scrambleText.textContent = scramble;
-            scrambleText.classList.remove('hidden');
-        }
         log("Scramble: " + scramble);
         vc.cubeString = cube.asString();
         vc.drawCube(ctx);
@@ -1160,71 +1426,43 @@ function generateScramble(options = {}) {
     return scramble;
 }
 
-function generateMultipleScrambles() {
-    const numScramblesInput = document.getElementById('numScrambles');
-    const numScrambles = parseInt(numScramblesInput.value) || 1;
+window.generateScramble = generateScramble;
+
+window.generateMultipleScrambles = function (options = {}) {
+    ensureInit();
+    const config = options.config || {};
+    const numScrambles = options.numScrambles ?? 1;
 
     if (numScrambles === 1) {
-        // Single scramble - use original display with cube visualization
-        generateScramble();
-        document.getElementById('scrambleList').classList.add('hidden');
-    } else {
-        // Multiple scrambles - generate and display as a list
-        const scrambles = [];
-        for (let i = 0; i < numScrambles; i++) {
-            scrambles.push(generateScramble({ silent: true }));
-        }
-
-        // Hide the single scramble display and cube
-        const scrambleElement = document.getElementById('scramble');
-        if (scrambleElement) {
-            scrambleElement.classList.add('hidden');
-        }
-
-        // Display the list of scrambles
-        const scrambleList = document.getElementById('scrambleList');
-        let listHTML = '<div class="alert alert-success" role="alert">';
-        listHTML += '<h6 class="mb-3">Generated ' + numScrambles + ' scrambles:</h6>';
-        scrambles.forEach((scramble, index) => {
-            listHTML += '<div class="mb-2"><strong>' + (index + 1) + '.</strong> ' + scramble + '</div>';
-        });
-        listHTML += '</div>';
-        scrambleList.innerHTML = listHTML;
-        scrambleList.classList.remove('hidden');
-
-        // Hide debug text
-        const debugElement = document.getElementById('debugText');
-        if (debugElement) {
-            debugElement.classList.add('hidden');
-        }
+        const scramble = generateScramble({ config });
+        return { mode: 'single', scrambles: [scramble] };
     }
-}
 
-function generateBulkScrambles() {
-    console.log("Bulk scramble generation started");
-    const numScramblesInput = document.getElementById('numScrambles');
-    const numScrambles = parseInt(numScramblesInput.value) || 1;
-    const scrambleElement = document.getElementById('scramble');
+    const scrambles = [];
+    for (let i = 0; i < numScrambles; i++) {
+        scrambles.push(generateScramble({ config, silent: true }));
+    }
+    return { mode: 'list', scrambles };
+};
+
+window.generateBulkScrambles = function (options = {}) {
+    ensureInit();
+    const config = options.config || {};
+    const numScrambles = options.numScrambles ?? 1;
+    const onProgress = options.onProgress;
 
     const scrambles = [];
     for (let i = 0; i < numScrambles; ++i) {
-        scrambles.push(generateScramble({ silent: true }));
-        if (numScrambles > 1 && (i + 1) % 10 === 0) {
-            scrambleElement.textContent = `Generating... ${i + 1}/${numScrambles}`;
-            console.log(`Generated ${i + 1}/${numScrambles} scrambles...`);
+        scrambles.push(generateScramble({ config, silent: true }));
+        if (numScrambles > 1 && (i + 1) % 10 === 0 && typeof onProgress === 'function') {
+            onProgress(i + 1, numScrambles);
         }
     }
+    if (typeof options.onComplete === 'function') options.onComplete(scrambles);
+    console.log(scrambles.join('\n'));
+    return scrambles;
+};
 
-    const allScrambles = scrambles.join("\n");
-    if (numScrambles > 1) {
-        scrambleElement.textContent = `Generated ${numScrambles} scrambles (see console)`;
-    }
-    console.log(allScrambles);
-}
-
-function debug() {
-    const debugText = document.getElementById('debugText');
-    debugText.textContent = debugString;
-    debugText.classList.remove('hidden');
-    console.log("Debug on")
-}
+window.getScrambleDebug = function () {
+    return debugString;
+};

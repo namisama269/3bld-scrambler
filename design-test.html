@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>3BLD Scrambler — Linear / macOS design test</title>
+<link rel="preconnect" href="https://rsms.me/" />
+<link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+<style>
+:root {
+    /* Linear-ish dark tokens with macOS spacing */
+    --bg: #08090a;
+    --bg-elev: #0e0f12;
+    --surface: #131418;
+    --surface-2: #1a1c20;
+    --border: rgba(255, 255, 255, 0.07);
+    --border-strong: rgba(255, 255, 255, 0.13);
+    --text: #e6e6e7;
+    --text-muted: #8a8f98;
+    --text-faint: #5e6571;
+    --accent: #5e6ad2;
+    --accent-soft: rgba(94, 106, 210, 0.16);
+    --accent-strong: #7681e8;
+    --danger: #eb5757;
+    --success: #4cb782;
+
+    --radius-sm: 4px;
+    --radius: 6px;
+    --radius-lg: 10px;
+    --radius-pill: 9999px;
+
+    --shadow-1: 0 1px 0 rgba(255,255,255,0.04) inset, 0 1px 2px rgba(0,0,0,0.4);
+
+    --font-sans: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+}
+
+@supports (font-variation-settings: normal) {
+    :root { --font-sans: 'Inter var', 'Inter Variable', system-ui, sans-serif; }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    height: 100%;
+}
+
+body {
+    font-family: var(--font-sans);
+    font-feature-settings: 'ss01', 'cv11', 'tnum';
+    background-color: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    font-size: 13px;
+    line-height: 1.45;
+    letter-spacing: -0.005em;
+}
+
+/* ---- topbar ---- */
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background-color: rgba(8, 9, 10, 0.7);
+    backdrop-filter: saturate(180%) blur(14px);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+    border-bottom: 1px solid var(--border);
+}
+
+.brand {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text);
+}
+
+.brand-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 2px;
+    background: linear-gradient(135deg, #7681e8, #5e6ad2);
+    margin-right: 8px;
+    vertical-align: 1px;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.05);
+}
+
+.tabstrip {
+    display: inline-flex;
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2px;
+}
+
+.tab {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-weight: 500;
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+.tab:hover { color: var(--text); background-color: rgba(255,255,255,0.04); }
+.tab.active {
+    background-color: var(--surface-2);
+    color: var(--text);
+    box-shadow: 0 0 0 1px var(--border-strong);
+}
+
+.spacer { flex: 1; }
+
+.icon-btn {
+    appearance: none;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    width: 28px; height: 28px;
+    border-radius: var(--radius-sm);
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.icon-btn:hover { background-color: var(--surface-2); color: var(--text); border-color: var(--border); }
+.icon-btn svg { width: 14px; height: 14px; }
+
+.kbd {
+    font: 11px var(--font-mono);
+    padding: 1px 5px;
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    color: var(--text-muted);
+}
+
+/* ---- layout ---- */
+.shell {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    max-width: 1400px;
+    padding: 16px;
+    margin: 0 auto;
+    align-items: start;
+}
+
+@media (max-width: 1023px) {
+    .shell { grid-template-columns: 1fr; }
+}
+
+/* ---- card ---- */
+.card {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.card + .card { margin-top: 12px; }
+
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(255,255,255,0.018), transparent);
+}
+
+.card-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.005em;
+}
+
+.muted-pill {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 2px 8px;
+    background-color: var(--surface-2);
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+}
+
+.card-body {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+/* ---- form rows ---- */
+.row {
+    display: grid;
+    grid-template-columns: 132px 1fr;
+    gap: 10px;
+    align-items: center;
+}
+
+.row-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.row-stack { display: flex; flex-direction: column; gap: 6px; }
+
+.input, .select {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    background-color: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font: inherit;
+    padding: 6px 10px;
+    border-radius: var(--radius);
+    transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.input:hover, .select:hover { border-color: var(--border-strong); }
+.input:focus, .select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.select {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M3 5l3 3 3-3' fill='none' stroke='%238a8f98' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+}
+
+.input-row { display: flex; align-items: center; gap: 6px; }
+.input-row .input { width: 64px; text-align: center; font-family: var(--font-mono); }
+
+/* ---- segmented control ---- */
+.segmented {
+    display: inline-flex;
+    background-color: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2px;
+    gap: 2px;
+}
+
+.seg {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+    min-width: 24px;
+}
+.seg:hover { color: var(--text); }
+.seg.active {
+    background-color: var(--bg-elev);
+    color: var(--text);
+    box-shadow: 0 0 0 1px var(--border-strong), 0 1px 2px rgba(0,0,0,0.3);
+}
+
+/* ---- buttons ---- */
+.btn {
+    appearance: none;
+    border: 1px solid var(--border);
+    background-color: var(--surface-2);
+    color: var(--text);
+    font: inherit;
+    font-weight: 500;
+    padding: 5px 12px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.12s, border-color 0.12s, transform 0.04s;
+}
+.btn:hover { background-color: var(--surface); border-color: var(--border-strong); }
+.btn:active { transform: translateY(1px); }
+
+.btn-primary {
+    background-color: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.12) inset, 0 1px 2px rgba(0,0,0,0.3);
+}
+.btn-primary:hover { background-color: var(--accent-strong); border-color: var(--accent-strong); }
+
+.btn-ghost { background-color: transparent; border-color: transparent; color: var(--text-muted); }
+.btn-ghost:hover { color: var(--text); background-color: var(--surface-2); }
+
+/* ---- buffer chips ---- */
+.chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px;
+    background-color: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    min-height: 36px;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    background-color: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--text);
+    cursor: grab;
+    user-select: none;
+    transition: border-color 0.12s, background 0.12s;
+}
+.chip:hover { border-color: var(--border-strong); background-color: var(--surface); }
+
+.chip.active {
+    background-color: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent-strong);
+}
+
+.chip-handle {
+    color: var(--text-faint);
+    line-height: 1;
+}
+
+/* ---- checkbox grid ---- */
+.checks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+}
+
+.check {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 12px;
+    color: var(--text);
+}
+
+.check input { display: none; }
+
+.check-box {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1px solid var(--border-strong);
+    background-color: var(--surface-2);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.12s, border-color 0.12s;
+}
+
+.check input:checked + .check-box {
+    background-color: var(--accent);
+    border-color: var(--accent);
+}
+
+.check input:checked + .check-box::after {
+    content: '';
+    width: 8px;
+    height: 5px;
+    border: 1.5px solid #fff;
+    border-top: 0;
+    border-right: 0;
+    transform: rotate(-45deg) translate(0, -1px);
+}
+
+/* ---- output column ---- */
+.output {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: sticky;
+    top: 64px;
+}
+
+.action-row { display: flex; gap: 6px; }
+
+.scramble-pill {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 12px 14px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--text);
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.scramble-pill .label {
+    display: block;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.canvas-wrap {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 12px;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cube-placeholder {
+    width: 100%;
+    height: 100%;
+    background:
+        radial-gradient(circle at 50% 35%, rgba(94, 106, 210, 0.18), transparent 60%),
+        repeating-linear-gradient(45deg, transparent 0 12px, rgba(255,255,255,0.018) 12px 13px);
+    border-radius: var(--radius);
+    display: grid;
+    place-items: center;
+    color: var(--text-faint);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.disclosure {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background-color: var(--surface-2);
+    overflow: hidden;
+}
+
+.disclosure summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.disclosure summary::before {
+    content: '▸';
+    color: var(--text-faint);
+    font-size: 9px;
+    transition: transform 0.15s;
+}
+
+.disclosure[open] summary::before {
+    transform: rotate(90deg);
+}
+
+.disclosure summary::-webkit-details-marker { display: none; }
+
+.disclosure-body {
+    padding: 12px;
+    border-top: 1px solid var(--border);
+    background-color: var(--surface);
+}
+
+.section-divider { height: 1px; background-color: var(--border); margin: -2px 0; }
+
+.field-hint { font-size: 11.5px; color: var(--text-faint); margin-top: 2px; }
+
+.kbd-row {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+.dot-warn { background-color: #d4a14a; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+    <div class="brand"><span class="brand-dot"></span>3BLD Scrambler</div>
+
+    <div class="tabstrip" role="tablist">
+        <button class="tab active">Scrambler</button>
+        <button class="tab">BLD Helper</button>
+    </div>
+
+    <span class="spacer"></span>
+
+    <span class="kbd-row"><span class="kbd">⌘</span><span class="kbd">G</span></span>
+
+    <button class="icon-btn" title="Theme">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 1 0 6.93 7.94A6 6 0 0 1 8.06 1z"/></svg>
+    </button>
+    <button class="icon-btn" title="More">
+        <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg>
+    </button>
+</div>
+
+<div class="shell">
+
+    <!-- Settings column -->
+    <div>
+
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Buffer order</span>
+                <span class="muted-pill">corners · drag</span>
+            </div>
+            <div class="card-body">
+                <div class="row-stack">
+                    <div class="row-label">Corners</div>
+                    <div class="chip-row">
+                        <span class="chip active"><span class="chip-handle">⋮⋮</span>UFR</span>
+                        <span class="chip"><span class="chip-handle">⋮⋮</span>UFL</span>
+                        <span class="chip"><span class="chip-handle">⋮⋮</span>UBR</span>
+                        <span class="chip"><span class="chip-handle">⋮⋮</span>UBL</span>
+                        <span class="chip"><span class="chip-handle">⋮⋮</span>DFR</span>
+                        <span class="chip"><span class="chip-handle">⋮⋮</span>DFL</span>
+                        <span class="chip"><span class="chip-handle">⋮⋮</span>DBR</span>
+                        <span class="chip"><span class="chip-handle">⋮⋮</span>DBL</span>
+                    </div>
+                </div>
+
+                <div class="row-stack">
+                    <div class="row-label">Edges</div>
+                    <div class="chip-row">
+                        <span class="chip active"><span class="chip-handle">⋮⋮</span>UF</span>
+                        <span class="chip"><span class="chip-handle">⋮⋮</span>UR</span>
+                        <span class="chip"><span class="chip-handle">⋮⋮</span>UB</span>
+                        <span class="chip"><span class="chip-handle">⋮⋮</span>UL</span>
+                        <span class="chip"><span class="chip-handle">⋮⋮</span>FR</span>
+                        <span class="chip"><span class="chip-handle">⋮⋮</span>FL</span>
+                        <span class="chip"><span class="chip-handle">⋮⋮</span>DF</span>
+                        <span class="chip"><span class="chip-handle">⋮⋮</span>DB</span>
+                        <span class="chip"><span class="chip-handle">⋮⋮</span>DR</span>
+                        <span class="chip"><span class="chip-handle">⋮⋮</span>DL</span>
+                        <span class="chip"><span class="chip-handle">⋮⋮</span>BR</span>
+                        <span class="chip"><span class="chip-handle">⋮⋮</span>BL</span>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="row-label">BLD orientation</div>
+                    <select class="select">
+                        <option>White top, Green front</option>
+                        <option>White top, Red front</option>
+                        <option>Yellow top, Green front</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Corner scramble</span>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="row-label">Type</div>
+                    <select class="select">
+                        <option>Solved</option>
+                        <option selected>Twist</option>
+                        <option>Comms</option>
+                        <option>Parity</option>
+                        <option>LTCT</option>
+                        <option>2-Swap</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <div class="row-label">Twist mode</div>
+                    <div class="segmented">
+                        <button class="seg active">2-twist</button>
+                        <button class="seg">Floating 2T</button>
+                        <button class="seg">3-twist</button>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="row-label">Extra targets</div>
+                    <div class="segmented">
+                        <button class="seg">0</button>
+                        <button class="seg active">1</button>
+                        <button class="seg">2</button>
+                        <button class="seg">3</button>
+                        <button class="seg">4</button>
+                        <button class="seg">5</button>
+                        <button class="seg">6</button>
+                        <button class="seg">7</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Edge scramble</span>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="row-label">Type</div>
+                    <select class="select">
+                        <option>Solved</option>
+                        <option selected>Flips</option>
+                        <option>Parity</option>
+                        <option>2-Swap</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <div class="row-label">Number of flips</div>
+                    <div class="segmented">
+                        <button class="seg">1</button>
+                        <button class="seg">2</button>
+                        <button class="seg">3</button>
+                        <button class="seg active">4</button>
+                        <button class="seg">5</button>
+                        <button class="seg">6</button>
+                        <button class="seg">7</button>
+                        <button class="seg">8</button>
+                        <button class="seg">9</button>
+                        <button class="seg">10</button>
+                        <button class="seg">11</button>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="row-label">Extra targets</div>
+                    <div class="segmented">
+                        <button class="seg active">0</button>
+                        <button class="seg">1</button>
+                        <button class="seg">2</button>
+                        <button class="seg">3</button>
+                        <button class="seg">4</button>
+                        <button class="seg">5</button>
+                        <button class="seg">6</button>
+                        <button class="seg">7</button>
+                        <button class="seg">8</button>
+                    </div>
+                </div>
+
+                <details class="disclosure">
+                    <summary>Advanced target settings</summary>
+                    <div class="disclosure-body">
+                        <div class="row-stack">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span class="row-label" style="margin-bottom:0;">Flip targets</span>
+                                <span class="muted-pill">10 / 10</span>
+                            </div>
+                            <div class="action-row" style="margin-top: -2px;">
+                                <button class="btn">Select all</button>
+                                <button class="btn btn-ghost">Unselect all</button>
+                            </div>
+                            <div class="checks">
+                                <label class="check"><input type="checkbox" checked><span class="check-box"></span>UB</label>
+                                <label class="check"><input type="checkbox" checked><span class="check-box"></span>UL</label>
+                                <label class="check"><input type="checkbox" checked><span class="check-box"></span>FR</label>
+                                <label class="check"><input type="checkbox" checked><span class="check-box"></span>FL</label>
+                                <label class="check"><input type="checkbox" checked><span class="check-box"></span>DF</label>
+                                <label class="check"><input type="checkbox" checked><span class="check-box"></span>DB</label>
+                                <label class="check"><input type="checkbox"><span class="check-box"></span>DR</label>
+                                <label class="check"><input type="checkbox" checked><span class="check-box"></span>DL</label>
+                                <label class="check"><input type="checkbox" checked><span class="check-box"></span>BR</label>
+                                <label class="check"><input type="checkbox" checked><span class="check-box"></span>BL</label>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Bulk count</span>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="row-label">Count</div>
+                    <div class="input-row">
+                        <input class="input" type="number" value="1" />
+                        <span class="field-hint">scrambles</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Output column -->
+    <div class="output">
+        <div class="action-row">
+            <button class="btn btn-primary">
+                <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M3 8l4 4 6-8" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+                Generate scramble
+            </button>
+            <button class="btn">Bulk</button>
+            <button class="btn btn-ghost">Debug</button>
+            <span style="flex:1"></span>
+            <button class="btn btn-ghost"><span class="kbd">Space</span></button>
+        </div>
+
+        <div class="scramble-pill">
+            <span class="label">Scramble</span>
+            R U R' U' R' F R2 U' R' U' R U R' F'  L F2 R' D F' L'  R U2 R' U' R U' R'
+        </div>
+
+        <div class="canvas-wrap">
+            <div class="cube-placeholder">cube canvas</div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Status</span>
+                <span class="muted-pill"><span class="dot dot-warn"></span>UFR buffer · 4-flip</span>
+            </div>
+            <div class="card-body" style="padding-top: 10px;">
+                <div style="display:flex; gap:14px; flex-wrap: wrap; font-size:12px; color:var(--text-muted);">
+                    <span>Corner: <span style="color:var(--text);">Twist · 1 extra</span></span>
+                    <span>Edge: <span style="color:var(--text);">Flips · 4 / 0 extras</span></span>
+                    <span>Generated <span style="color:var(--text);">2.1ms</span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+</body>
+</html>

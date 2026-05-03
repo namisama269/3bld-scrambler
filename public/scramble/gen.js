@@ -134,6 +134,20 @@ function getPiece(target) {
     return [];
 }
 
+// For each piece index in `indices`, pick a random orientation and emit the
+// corresponding sticker name. Used to convert a list of leftover/unused
+// pieces into a sequence of targets for the engine's J-perm loop.
+function randomTargetsForPieces(indices, isCorner) {
+    const PIECES = isCorner ? CORNERS : EDGES;
+    const numOrientations = isCorner ? 3 : 2;
+    const targets = [];
+    for (const i of indices) {
+        const ori = Math.floor(Math.random() * numOrientations);
+        targets.push(PIECES[i][ori]);
+    }
+    return targets;
+}
+
 function generateCycleBase(pieces, firstTarget, orientationNumber, appendCycleBreak) {
     const isCorner = firstTarget.length == 3;
     const PIECES = isCorner ? CORNERS : EDGES;
@@ -508,17 +522,14 @@ function generateFlipExtras(remainingPieceIndices, count) {
     return result;
 }
 
-// 2E: Two targets to start, then isolated cycle with remaining pieces (edge version)
-// Inputs: firstPieceIndex - the edge piece to start from
-//         availableSecondPieceIndices - optional array of allowed second piece indices
-//         forceIdenticalThirdTarget - if true, thirdTarget = firstTarget (Floating 2E)
-//         bufferIndex - the edge buffer index to exclude (default 0 = UF)
-function generate2E(firstPieceIndex, availableSecondPieceIndices, forceIdenticalThirdTarget = false, bufferIndex = 0) {
-    // Determine the parity edge (UF or UR, whichever is not the buffer)
-    // UF is index 0, UR is index 2
-    const parityEdgeIndex = bufferIndex === 0 ? 2 : 0; // if buffer is UF, parity is UR; if buffer is UR, parity is UF
+// 2E: 2-Swap setup (firstTarget, secondTarget, thirdTarget), then an isolated
+// cycle of `extraCount` pieces. extraCount must be even — odd cycle lengths
+// flip parity and cancel the 2-Swap. The leftover non-cycle pieces stay
+// untouched (no random remainingTargets), which is the simpler form the
+// user asked for.
+function generate2E(firstPieceIndex, availableSecondPieceIndices, forceIdenticalThirdTarget = false, bufferIndex = 0, extraCount = 6) {
+    const parityEdgeIndex = bufferIndex === 0 ? 2 : 0;
 
-    // Start with all edge pieces except the buffer and parity edge
     let pieces = [];
     for (let i = 0; i < EDGES.length; i++) {
         if (i !== bufferIndex && i !== parityEdgeIndex) {
@@ -526,24 +537,18 @@ function generate2E(firstPieceIndex, availableSecondPieceIndices, forceIdentical
         }
     } // 10 pieces
 
-    // Remove firstPiece from the list
     pieces = pieces.filter(i => i !== firstPieceIndex);
 
-    // Randomly select firstTarget from firstPiece (orientation 0 or 1)
     const firstTargetOri = Math.floor(Math.random() * 2);
     const firstTarget = EDGES[firstPieceIndex][firstTargetOri];
 
-    // thirdTarget: same sticker (Floating 2E) or flipped sticker (F2E)
     let thirdTarget;
     if (forceIdenticalThirdTarget) {
         thirdTarget = firstTarget;
     } else {
-        // For edges, there's only one other orientation (the flip)
         thirdTarget = EDGES[firstPieceIndex][1 - firstTargetOri];
     }
 
-    // Randomly select secondPiece from available options and remove it
-    // Also ensure parity edge is not in secondPieceOptions
     let secondPieceOptions = availableSecondPieceIndices && availableSecondPieceIndices.length > 0
         ? availableSecondPieceIndices.filter(i => pieces.includes(i) && i !== parityEdgeIndex)
         : pieces.filter(i => i !== parityEdgeIndex);
@@ -552,24 +557,48 @@ function generate2E(firstPieceIndex, availableSecondPieceIndices, forceIdentical
     const secondTargetOri = Math.floor(Math.random() * 2);
     const secondTarget = EDGES[secondPieceIndex][secondTargetOri];
 
-    // Now select 3-8 pieces for the cycle from remaining pieces (parity edge already excluded)
-    const numCyclePieces = Math.floor(Math.random() * 6) + 3; // 3-8
-    const shuffledPieces = shuffleArray(pieces);
-    const cyclePieces = shuffledPieces.slice(0, Math.min(numCyclePieces, shuffledPieces.length));
-    const leftoverPieces = shuffledPieces.slice(Math.min(numCyclePieces, shuffledPieces.length));
+    // extraCount = number of cycle TARGETS (J-perms). Must be even — odd
+    // parity cancels the 2-Swap.
+    //   extras = 0: just the 2-Swap setup, no cycle, parity edge solved.
+    //   extras ≤ 8: N unique pieces from a 9-piece pool (8 non-2-Swap +
+    //     parity edge). One J-perm each, no cycle-break, no repeats.
+    //   extras = 10: EXACT legacy F2E behavior — random isolated cycle of
+    //     3-8 pieces plus remainingTargets for the leftover pieces and the
+    //     parity edge, totaling 10 J-perms always.
+    const fullPool = [...pieces, parityEdgeIndex]; // 9 entries
+    const MAX_EXTRAS = fullPool.length + 1; // 10
+    let extras = Math.max(0, extraCount | 0);
+    if (extras > MAX_EXTRAS) extras = MAX_EXTRAS;
+    if (extras % 2 === 1) extras -= 1;
 
-    // Generate isolated cycle
-    const cycleFirstTargetOri = Math.floor(Math.random() * 2);
-    const cycleFirstTarget = EDGES[cyclePieces[0]][cycleFirstTargetOri];
-    const orientationNumber = Math.floor(Math.random() * 2);
-    const cycleTargets = generateIsolatedCycle(cyclePieces, cycleFirstTarget, orientationNumber);
+    let cycleTargets = [];
+    let remainingTargets = [];
 
-    // Generate random targets for leftover pieces, plus the parity edge
-    const allLeftoverPieces = shuffleArray([parityEdgeIndex, ...leftoverPieces]);
-    const remainingTargets = [];
-    for (let i of allLeftoverPieces) {
-        const ori = Math.floor(Math.random() * 2);
-        remainingTargets.push(EDGES[i][ori]);
+    if (extras === 0) {
+        // no cycle
+    } else if (extras === MAX_EXTRAS) {
+        // Legacy F2E path. If the parity edge is already used as first or
+        // second piece (now allowed since first-piece can be the parity
+        // edge), we skip adding it again to allLeftoverPieces.
+        const numCyclePieces = Math.floor(Math.random() * 6) + 3; // 3-8
+        const shuffledPieces = shuffleArray(pieces);
+        const cyclePieces = shuffledPieces.slice(0, Math.min(numCyclePieces, shuffledPieces.length));
+        const leftoverPieces = shuffledPieces.slice(Math.min(numCyclePieces, shuffledPieces.length));
+
+        const cycleFirstTargetOri = Math.floor(Math.random() * 2);
+        const cycleFirstTarget = EDGES[cyclePieces[0]][cycleFirstTargetOri];
+        const orientationNumber = Math.floor(Math.random() * 2);
+        cycleTargets = generateIsolatedCycle(cyclePieces, cycleFirstTarget, orientationNumber);
+
+        const parityAlreadyUsed = firstPieceIndex === parityEdgeIndex || secondPieceIndex === parityEdgeIndex;
+        const allLeftoverPieces = parityAlreadyUsed
+            ? shuffleArray(leftoverPieces)
+            : shuffleArray([parityEdgeIndex, ...leftoverPieces]);
+        remainingTargets = randomTargetsForPieces(allLeftoverPieces, false);
+    } else {
+        // extras 2/4/6/8: N unique pieces from the 9-piece pool.
+        const chosen = shuffleArray(fullPool).slice(0, extras);
+        cycleTargets = randomTargetsForPieces(chosen, false);
     }
 
     return { firstTarget, secondTarget, thirdTarget, cycleTargets, remainingTargets };

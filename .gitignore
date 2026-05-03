@@ -1,3 +1,8 @@
 algs/
 temp/
 node_modules/
+.claude/
+CLAUDE.md
+dist/
+__pycache__/
+*.pyc
