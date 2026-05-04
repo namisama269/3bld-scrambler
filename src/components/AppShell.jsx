@@ -6,8 +6,8 @@ import BufferOrderCard from './BufferOrderCard.jsx';
 
 const ICONS = {
     moon: (
-        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-            <path d="M8 1a7 7 0 1 0 6.93 7.94A6 6 0 0 1 8.06 1z" />
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M14 8.53A6 6 0 1 1 7.47 2 4.67 4.67 0 0 0 14 8.53z" />
         </svg>
     ),
     sun: (
@@ -30,7 +30,7 @@ export default function AppShell({ themeMode, onThemeToggle }) {
         <>
             <div className="topbar">
                 <span className="brand">
-                    <span className="brand-logo" aria-hidden="true" />
+                    <img className="brand-logo" src="./logo.png" alt="" aria-hidden="true" />
                     3BLD Scrambler
                 </span>
 
@@ -60,26 +60,7 @@ export default function AppShell({ themeMode, onThemeToggle }) {
 
             <div className="shell">
                 <div className="col-stack">
-                    <BufferOrderCard />
-                    <div className="card">
-                        <div className="card-header">
-                            <span className="card-title">Mode</span>
-                        </div>
-                        <div className="card-body">
-                            <div className="row">
-                                <label className="row-label" htmlFor="app-mode">Generate using</label>
-                                <select
-                                    id="app-mode"
-                                    className="select"
-                                    value={activeTab}
-                                    onChange={(e) => setActiveTab(e.target.value)}
-                                >
-                                    <option value="scrambler">Scrambler</option>
-                                    <option value="bldHelper">BLD Helper</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
+                    <BufferOrderCard activeTab={activeTab} setActiveTab={setActiveTab} />
                     {activeTab === 'scrambler' ? <ScramblerTab /> : <BldHelperTab />}
                 </div>
                 <div className="output-col">

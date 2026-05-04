@@ -66,22 +66,18 @@ function buildScrambleConfig(options) {
         edgeBuffer: c.edgeBuffer || 'UF',
         cornerScrambleType: c.cornerScrambleType || 'Solved',
         edgeScrambleType: c.edgeScrambleType || 'Solved',
+        cornerRandomParity: c.cornerRandomParity || 'any',
+        edgeRandomParity: c.edgeRandomParity || 'any',
         cornerTargetCount: c.cornerTargetCount ?? 8,
         parityTargets: c.parityTargets || [],
-        paritySpecialTargets: c.paritySpecialTargets || [],
         cornerTwistCount: c.cornerTwistCount ?? 2,
         cornerTwistExtraCount: c.cornerTwistExtraCount ?? 0,
         cornerTwistDirection: c.cornerTwistDirection || 'mixed',
         cornerTwistTargets: c.cornerTwistTargets || [],
-        ltctMode: c.ltctMode || 'pieces',
-        ltctCount: c.ltctCount ?? 7,
-        ltctParityTargets: c.ltctParityTargets || [],
-        ltctTwistTargets: c.ltctTwistTargets || [],
-        ltct2ParityTargets: c.ltct2ParityTargets || [],
-        ltct2TwistTargets: c.ltct2TwistTargets || [],
         twoSwapMode: c.twoSwapMode || 'unoriented',
         t2cFirstPieces: c.t2cFirstPieces || [],
         t2cOnlyLaterBuffers: !!c.t2cOnlyLaterBuffers,
+        t2cExtraCount: c.t2cExtraCount ?? 6,
         edgeParityCount: c.edgeParityCount ?? 11,
         edgeParityTargets: c.edgeParityTargets || [],
         flipExtraCount: c.flipExtraCount ?? 0,
@@ -103,6 +99,34 @@ function buildScrambleConfig(options) {
         cornerBufferOrder: c.cornerBufferOrder || ['UFR', 'UFL', 'UBR', 'UBL', 'DFR', 'DFL', 'DBR', 'DBL'],
         edgeBufferOrder: c.edgeBufferOrder || ['UF', 'UR', 'UB', 'UL', 'FR', 'FL', 'DF', 'DB', 'DR', 'DL'],
     };
+}
+
+// 462-parity correction: when the corner side AND the edge side BOTH end up
+// with a dangling odd-parity target (Targets odd, Floating odd N, Twist with
+// odd extras, Flips with odd extras — anything but 2-Swap), this 3-alg
+// sequence handles both danglers at once at the START of the scramble. Net
+// effect on the cube: pure UFR↔cornerTarget swap on corners + UF/UR↔edgeTarget
+// swap on edges, no other movement.
+//
+// Doing the parity work UP FRONT means subsequent CO twists / EO flips and
+// any Jb-style operations don't get a stray UFR↔UBR swap landing on top of
+// them later — which is what currently relocates a UBR-piece twist to UFR
+// when edge-side parity fires after the twist branch.
+//
+// The 3 steps:
+//   1. getEdgeParityAlg(edgeBuffer, edgeTarget)
+//      → swaps edgeBuffer↔edgeTarget on edges, UFR↔UBR on corners
+//   2. Jb perm (= PARITY_UF_UR_UFR_X['UBR'])
+//      → swaps UFR↔UBR on corners (cancels step 1's corner part), UF↔UR on edges
+//   3. PARITY_UF_UR_UFR_X[cornerTarget]
+//      → swaps UFR↔cornerTarget on corners, UF↔UR on edges (cancels step 2's edge UF/UR)
+//
+// Named 462 for the number of (corner, edge) target combinations this set
+// distinguishes across the available stickers.
+function handle462Parity(cornerTarget, edgeTarget, edgeBuffer) {
+    cube.move(getEdgeParityAlg(edgeBuffer, edgeTarget));
+    cube.move(Jb_PERM);
+    cube.move(PARITY_UF_UR_UFR_X[cornerTarget]);
 }
 
 // generate scramble
@@ -129,23 +153,24 @@ function generateScramble(options = {}) {
     // surrounding code via `_ctxLabel`.
     const appliedAlgs = [];
     let _ctxLabel = '';
-    const _algLookup = (() => {
+    // Standardized parity-alg prefix: every entry is a Jb-style swap of one
+    // edge pair + one corner pair. Encoded as `(UF-XY UFR-XYZ)` where the
+    // first half names the edge swap and the second names the corner swap.
+    const _algPrefix = (() => {
         const map = new Map();
-        if (typeof Jb_PERM !== 'undefined') map.set(Jb_PERM.trim(), 'Jb perm');
-        if (typeof UF_UR_FLIP !== 'undefined') map.set(UF_UR_FLIP.trim(), 'UF/UR flip (parity edge fix)');
-        if (typeof PARITY_UR_X_UFR_UBR !== 'undefined') {
-            for (const [target, alg] of Object.entries(PARITY_UR_X_UFR_UBR)) {
-                if (alg) map.set(alg.trim(), `Edge parity (UR → ${target})`);
+        if (typeof PARITY_UF_UR_UFR_X !== 'undefined') {
+            for (const [target, alg] of Object.entries(PARITY_UF_UR_UFR_X)) {
+                if (alg) map.set(alg.trim(), `(UF-UR UFR-${target})`);
             }
         }
         if (typeof PARITY_UF_X_UFR_UBR !== 'undefined') {
             for (const [target, alg] of Object.entries(PARITY_UF_X_UFR_UBR)) {
-                if (alg) map.set(alg.trim(), `Edge parity (UF → ${target})`);
+                if (alg) map.set(alg.trim(), `(UF-${target} UFR-UBR)`);
             }
         }
-        if (typeof PARITY_UF_UR_UFR_X !== 'undefined') {
-            for (const [target, alg] of Object.entries(PARITY_UF_UR_UFR_X)) {
-                if (alg) map.set(alg.trim(), `Corner parity (UFR → ${target})`);
+        if (typeof PARITY_UR_X_UFR_UBR !== 'undefined') {
+            for (const [target, alg] of Object.entries(PARITY_UR_X_UFR_UBR)) {
+                if (alg) map.set(alg.trim(), `(UR-${target} UFR-UBR)`);
             }
         }
         return map;
@@ -154,10 +179,11 @@ function generateScramble(options = {}) {
     cube.move = function (alg) {
         const trimmed = (alg || '').trim();
         if (trimmed) {
-            // Call-site context wins over the table lookup — same alg string can
-            // serve different roles (e.g. Jb perm vs corner parity (UFR→UBR)).
-            const label = _ctxLabel || _algLookup.get(trimmed) || 'Generated alg';
-            appliedAlgs.push({ alg: trimmed, label });
+            const prefix = _algPrefix.get(trimmed) || '';
+            // Capture _ctxLabel as a fallback annotation for non-parity algs
+            // (CO twists, EO flips, random-state solve-inverses, …) so every
+            // entry in the applied-algs footer says what it is.
+            appliedAlgs.push({ alg: trimmed, prefix, label: _ctxLabel || '' });
         }
         return origMove(alg);
     };
@@ -234,6 +260,271 @@ function generateScramble(options = {}) {
 
     let solveCornerIfOdd = true;
     let solveEdgeIfOdd = true;
+
+    // === 462-parity pre-handling ==================================
+    // When corner AND edge sides both produce a dangling odd-parity
+    // Jb-style swap (and neither is 2-Swap), we run:
+    //   Stage A: corner CO twists (if cornerScrambleType=Twist).
+    //   Stage B: edge EO flips (if edgeScrambleType=Flips).
+    //   Stage C: handle462Parity(X_c, X_e, edgeBuffer).
+    // Then the per-side branches do the EVEN remainder. This way the
+    // edge parity alg's UFR↔UBR swap doesn't relocate a CO twist later.
+    //
+    // Tier-1 coverage: corner ∈ {Twist+odd extras, Targets odd→Parity,
+    // raw Parity}, edge ∈ {Targets odd→Parity, raw Parity}.
+    // 462 only applies when the dangling parity target is on the main
+    // buffer (UFR for corners, UF/UR for edges). Modes whose odd parity
+    // comes from a different structure are intentionally NOT routed here:
+    //   - Floating: parity lives in a non-main-buffer cycle.
+    //   - Random:   handled by the U-fix mechanism (see Random branches).
+    const cornerOddParityTier1 = (
+        cornerScrambleType === 'Parity' ||
+        (cornerScrambleType === 'Twist' && (cfg.cornerTwistExtraCount % 2 === 1))
+    );
+    const edgeOddParityTier1 = (
+        edgeScrambleType === 'Parity' ||
+        (edgeScrambleType === 'Flips' && (cfg.flipExtraCount % 2 === 1))
+    );
+    let pre462Active = false;
+    let pre462TwistCODone = false;
+    let pre462TwistContext = null;
+    let pre462FlipsEODone = false;
+    let pre462FlipsContext = null;
+    // Floating tracks whether each side's J-perm chain ended up with odd
+    // length. Each Jb in the chain leaks one stray UF/UR (corner side) or
+    // UFR/UBR (edge side) swap; an odd-length chain means one is left over.
+    // When BOTH sides leak, the two leftover swaps together form a Jb perm,
+    // which we cancel with one more Jb at the end.
+    let cornerFloatingOddParity = false;
+    let edgeFloatingOddParity = false;
+
+    if (cornerOddParityTier1 && edgeOddParityTier1) {
+        pre462Active = true;
+        let pre462X_c = null;
+        let pre462X_e = null;
+
+        // Stage A: corner CO twists (Twist branch's CO part only).
+        if (cornerScrambleType === 'Twist') {
+            const N = Math.max(1, Math.min(7, cfg.cornerTwistCount ?? 2));
+            const direction = cfg.cornerTwistDirection || 'mixed';
+            const twistTargetSet = new Set(cfg.cornerTwistTargets);
+            const eligibleCornerPieces = twistTargetSet.size > 0
+                ? cornerPieces.filter((i) => twistTargetSet.has(CORNERS[i][0]))
+                : cornerPieces;
+            const shuffledCornerPieces = shuffleArray([...eligibleCornerPieces]);
+            const twistedPieces = shuffledCornerPieces.slice(0, N);
+
+            const oris = new Array(N);
+            if (N === 1 || direction === 'same') {
+                const fixedOri = Math.floor(Math.random() * 2) + 1;
+                for (let i = 0; i < N; i++) oris[i] = fixedOri;
+            } else {
+                const indices = shuffleArray(Array.from({ length: N }, (_, i) => i));
+                const cwIdx = indices[0];
+                const ccwIdx = indices[1];
+                for (let i = 0; i < N; i++) {
+                    if (i === cwIdx) oris[i] = 1;
+                    else if (i === ccwIdx) oris[i] = 2;
+                    else oris[i] = Math.floor(Math.random() * 2) + 1;
+                }
+            }
+            const twistTargets = twistedPieces.map((idx, i) => CORNERS[idx][oris[i]]);
+
+            twistTargets.forEach((twist, i) => {
+                const piece = CORNERS.find((p) => p.includes(twist));
+                const udTarget = piece[0];
+                const baseLabel = "Corner CO twist " + (i + 1) + "/" + N + " (target=" + twist + ")";
+                _ctxLabel = baseLabel + " step 1/2";
+                cube.move(PARITY_UF_UR_UFR_X[udTarget]);
+                _ctxLabel = baseLabel + " step 2/2";
+                cube.move(PARITY_UF_UR_UFR_X[twist]);
+            });
+            _ctxLabel = '';
+
+            const dirLabel = N === 1 ? 'random' : direction;
+            log("Custom " + N + "-twist (direction=" + dirLabel + "): " + twistTargets.join(" "));
+            addDebugLine("Custom " + N + "-twist (direction=" + dirLabel + "): " + twistTargets.join(" "));
+
+            cornerPieces = cornerPieces.filter((idx) => !twistedPieces.includes(idx));
+            pre462TwistCODone = true;
+            pre462TwistContext = { twistedPieces, twistTargets, N, dirLabel };
+        }
+
+        // Stage B: edge EO flips (Flips branch's EO part only). Pre-pick
+        // chosen + apply EO algs here so they're not disturbed by 462's
+        // swaps. The dangling odd-extras parity sticker becomes X_e.
+        if (edgeScrambleType === 'Flips') {
+            const flipExtraCount = cfg.flipExtraCount;
+            const parityEdgeIdxLocal = edgeBufferIndex === 0 ? 2 : 0;
+            const flipCountByModeLocal = Math.max(1, Math.min(11, cfg.flipCustomCount));
+
+            const flipCandidates = edgePieces.filter((i) => i !== parityEdgeIdxLocal);
+            const selectedFlipStickers = new Set(cfg.flipTargets);
+            const eligibleFlipPieces = (selectedFlipStickers.size === 0)
+                ? flipCandidates
+                : flipCandidates.filter((i) => selectedFlipStickers.has(EDGES[i][0]));
+            const selectedParityStickers = [...(cfg.flipParityTargets || [])];
+            const eligibleParityStickers = (selectedParityStickers.length === 0)
+                ? edgePieces.flatMap((i) => EDGES[i])
+                : selectedParityStickers;
+
+            const validCombos = [];
+            const flipPieceCombos = (function () {
+                const k = flipCountByModeLocal;
+                if (k === 0) return [[]];
+                if (k > eligibleFlipPieces.length) return [];
+                const out = [];
+                (function rec(start, combo) {
+                    if (combo.length === k) { out.push(combo.slice()); return; }
+                    for (let i = start; i < eligibleFlipPieces.length; i++) {
+                        combo.push(eligibleFlipPieces[i]);
+                        rec(i + 1, combo);
+                        combo.pop();
+                    }
+                })(0, []);
+                return out;
+            })();
+            for (const fp of flipPieceCombos) {
+                const afterFlipPool = edgePieces.filter((i) => !fp.includes(i));
+                for (const stk of eligibleParityStickers) {
+                    const stkPieceIdx = EDGES.findIndex((p) => p.includes(stk));
+                    if (stkPieceIdx < 0) continue;
+                    if (fp.includes(stkPieceIdx)) continue;
+                    const afterParityPool = afterFlipPool.filter((i) => i !== stkPieceIdx);
+                    const remainingNeeded = flipExtraCount - 1;
+                    const n = afterFlipPool.length;
+                    if (flipExtraCount === n + 1) {
+                        if (afterParityPool.length >= n - 1) {
+                            validCombos.push({ flipPieces: fp, parityPieceIdx: stkPieceIdx, paritySticker: stk });
+                        }
+                    } else if (afterParityPool.length >= remainingNeeded) {
+                        validCombos.push({ flipPieces: fp, parityPieceIdx: stkPieceIdx, paritySticker: stk });
+                    }
+                }
+            }
+            if (validCombos.length === 0) {
+                throw new Error("462: no valid Flips combination available — adjust flip / parity targets or counts");
+            }
+            const chosen = validCombos[Math.floor(Math.random() * validCombos.length)];
+
+            // 462 makes the existing double-Parity correction unnecessary,
+            // so we always apply flips against the primary edgeBuffer here.
+            const flipBufferLocal = edgeBuffer;
+            const flipPieceSet = new Set(chosen.flipPieces);
+            const flipStickers = chosen.flipPieces.map((idx) => EDGES[idx][0]);
+            edgePieces = edgePieces.filter((x) => !flipPieceSet.has(x));
+            for (const sticker of flipStickers) {
+                const piece = EDGES.find((p) => p.includes(sticker));
+                const baseLabel = "Edge EO flip (sticker=" + sticker + ", buffer=" + flipBufferLocal + ")";
+                _ctxLabel = baseLabel + " step 1/2";
+                cube.move(getEdgeParityAlg(flipBufferLocal, piece[0]));
+                _ctxLabel = baseLabel + " step 2/2";
+                cube.move(getEdgeParityAlg(flipBufferLocal, piece[1]));
+            }
+            _ctxLabel = '';
+            log(flipCountByModeLocal + "-flip (462 pre): " + flipStickers.join(" "));
+            addDebugLine(flipCountByModeLocal + "-flip (462 pre): " + flipStickers.join(" "));
+
+            pre462FlipsEODone = true;
+            pre462FlipsContext = { chosen, flipBuffer: flipBufferLocal, flipCountByMode: flipCountByModeLocal };
+        }
+
+        // --- Pick parity targets, mutate state to even remainder ---
+        if (cornerScrambleType === 'Parity') {
+            // Replicate corner Parity branch's target selection.
+            const selectedParityTargets = [...(cfg.parityTargets || [])];
+            if (selectedParityTargets.length === 0) {
+                const i = Math.floor(Math.random() * cornerPieces.length);
+                const piece = CORNERS[cornerPieces[i]];
+                pre462X_c = piece[Math.floor(Math.random() * piece.length)];
+            } else {
+                pre462X_c = selectedParityTargets[Math.floor(Math.random() * selectedParityTargets.length)];
+            }
+            const targetPieceIndex = CORNERS.findIndex((piece) => piece.includes(pre462X_c));
+            if (targetPieceIndex !== -1) {
+                cornerPieces = cornerPieces.filter((idx) => idx !== targetPieceIndex);
+            }
+            const piecesToLeaveCount = 7 - cfg.parityCount;
+            if (piecesToLeaveCount > 0) {
+                const shuffledRemaining = shuffleArray([...cornerPieces]);
+                const piecesToLeave = shuffledRemaining.slice(0, piecesToLeaveCount);
+                cornerPieces = cornerPieces.filter((i) => !piecesToLeave.includes(i));
+                log("Parity (462 pre): Leaving " + piecesToLeaveCount + " pieces aside: " + piecesToLeave.map((i) => CORNERS[i][0]).join(", "));
+                addDebugLine("Parity (462 pre): Leaving " + piecesToLeaveCount + " pieces aside: " + piecesToLeave.map((i) => CORNERS[i][0]).join(", "));
+            }
+            // Suppress the Parity branch — leave cornerPieces for the comms loop.
+            cornerScrambleType = '__462_handled__';
+        } else if (cornerScrambleType === 'Twist') {
+            // Pick X_c from cfg.parityTargets if any are eligible (their piece
+            // is still in cornerPieces — i.e. non-buffer, non-twisted). Falls
+            // back to a random non-twisted corner sticker if the user's
+            // selection has no eligible pieces.
+            if (cornerPieces.length === 0) {
+                throw new Error('462: no remaining corner piece for parity target');
+            }
+            const eligible = (cfg.parityTargets || []).filter((t) => {
+                const idx = CORNERS.findIndex((p) => p.includes(t));
+                return idx >= 0 && cornerPieces.includes(idx);
+            });
+            if (eligible.length > 0) {
+                pre462X_c = eligible[Math.floor(Math.random() * eligible.length)];
+            } else {
+                const i = Math.floor(Math.random() * cornerPieces.length);
+                const piece = CORNERS[cornerPieces[i]];
+                pre462X_c = piece[Math.floor(Math.random() * piece.length)];
+            }
+            const pieceIdx = CORNERS.findIndex((p) => p.includes(pre462X_c));
+            cornerPieces = cornerPieces.filter((idx) => idx !== pieceIdx);
+            cfg.cornerTwistExtraCount = (cfg.cornerTwistExtraCount ?? 0) - 1;
+        }
+
+        if (edgeScrambleType === 'Parity') {
+            // Replicate edge Parity branch's target selection.
+            const bufferPieceIndex = EDGES.findIndex((piece) => piece.includes(edgeBuffer));
+            const selectedEdgeParityTargets = (cfg.edgeParityTargets || []).filter((v) => {
+                const stickerPieceIndex = EDGES.findIndex((piece) => piece.includes(v));
+                return stickerPieceIndex !== bufferPieceIndex;
+            });
+            if (selectedEdgeParityTargets.length === 0) {
+                const i = Math.floor(Math.random() * edgePieces.length);
+                const piece = EDGES[edgePieces[i]];
+                pre462X_e = piece[Math.floor(Math.random() * piece.length)];
+            } else {
+                pre462X_e = selectedEdgeParityTargets[Math.floor(Math.random() * selectedEdgeParityTargets.length)];
+            }
+            const targetPieceIndex = EDGES.findIndex((piece) => piece.includes(pre462X_e));
+            if (targetPieceIndex !== -1) {
+                edgePieces = edgePieces.filter((idx) => idx !== targetPieceIndex);
+            }
+            const piecesToLeaveCount = 11 - cfg.edgeParityCount;
+            if (piecesToLeaveCount > 0) {
+                const shuffledRemaining = shuffleArray([...edgePieces]);
+                const piecesToLeave = shuffledRemaining.slice(0, piecesToLeaveCount);
+                edgePieces = edgePieces.filter((i) => !piecesToLeave.includes(i));
+                log("Edge Parity (462 pre): Leaving " + piecesToLeaveCount + " pieces aside: " + piecesToLeave.map((i) => EDGES[i][0]).join(", "));
+                addDebugLine("Edge Parity (462 pre): Leaving " + piecesToLeaveCount + " pieces aside: " + piecesToLeave.map((i) => EDGES[i][0]).join(", "));
+            }
+            edgeScrambleType = '__462_handled__';
+            doubleParityEdgeTarget = pre462X_e;
+        } else if (edgeScrambleType === 'Flips' && pre462FlipsEODone) {
+            // X_e = the parity sticker that the Flips branch would have used
+            // for its odd-extras parity Jb. The parity-piece is removed from
+            // edgePieces so the leftover extras pool is even.
+            pre462X_e = pre462FlipsContext.chosen.paritySticker;
+            const stkPieceIdx = pre462FlipsContext.chosen.parityPieceIdx;
+            edgePieces = edgePieces.filter((idx) => idx !== stkPieceIdx);
+            cfg.flipExtraCount = (cfg.flipExtraCount ?? 0) - 1;
+            doubleParityEdgeTarget = pre462X_e;
+        }
+
+        // Stage C: apply the combined 462 correction.
+        log("462-parity correction: cornerTarget=" + pre462X_c + ", edgeTarget=" + pre462X_e);
+        addDebugLine("462-parity correction: cornerTarget=" + pre462X_c + ", edgeTarget=" + pre462X_e);
+        _ctxLabel = "462-parity correction (corner=" + pre462X_c + ", edge=" + pre462X_e + ")";
+        handle462Parity(pre462X_c, pre462X_e, edgeBuffer);
+        _ctxLabel = '';
+    }
+    // === end 462-parity pre-handling ==============================
 
     if (cornerScrambleType == "Solved") {
         cornerPieces = [];
@@ -355,33 +646,6 @@ function generateScramble(options = {}) {
         log("Corner parity (count=" + parityCount + "): " + parityTarget);
         addDebugLine("Corner parity (count=" + parityCount + "): " + parityTarget);
     }
-    else if (cornerScrambleType == "ParitySpecial") {
-        // Get selected parity special targets
-        const selectedParitySpecialTargets = [];
-        const paritySpecialTargetCheckboxes = (cfg.paritySpecialTargets || []).map((v) => ({ checked: true, value: v }));
-        paritySpecialTargetCheckboxes.forEach(checkbox => {
-            if (checkbox.checked) {
-                selectedParitySpecialTargets.push(checkbox.value);
-            }
-        });
-
-        // If no targets selected, fall back to default list
-        const specialParityTargets = selectedParitySpecialTargets.length > 0
-            ? selectedParitySpecialTargets
-            : ["UBL", "UBR", "UFL", "LUF", "BUR"];
-        const parityTarget = specialParityTargets[Math.floor(Math.random() * specialParityTargets.length)];
-        const parityPieceIndex = CORNERS.findIndex(piece => piece.includes(parityTarget));
-        if (parityPieceIndex !== -1) {
-            const listIndex = cornerPieces.indexOf(parityPieceIndex);
-            if (listIndex !== -1) {
-                cornerPieces.splice(listIndex, 1);
-            }
-        }
-
-        cube.move(generateParityAlg("UF", "UR", cornerBuffer, parityTarget));
-        log("Corner parity: " + parityTarget);
-        addDebugLine("Corner parity: " + parityTarget);
-    }
     else if (cornerScrambleType == "Floating") {
         // Mirrors the edge Floating logic: pick a floating corner buffer F
         // (multi-select + Equal/Weighted distribution), then chain corner
@@ -452,6 +716,8 @@ function generateScramble(options = {}) {
         log("Corner Floating: floatingBuffer=" + floatingBuffer + " (distribution=" + distribution + ", from " + candidates.length + ") seq=" + seq.join(" "));
         addDebugLine("Corner Floating: floatingBuffer=" + floatingBuffer + " (distribution=" + distribution + ", from " + candidates.length + ") seq=" + seq.join(" "));
 
+        cornerFloatingOddParity = seq.length % 2 === 1;
+
         seq.forEach((target, i) => {
             _ctxLabel = "Corner Floating " + (i + 1) + "/" + seq.length + " (target=" + target + ")";
             cube.move(generateParityAlg("UF", "UR", "UFR", target));
@@ -461,66 +727,102 @@ function generateScramble(options = {}) {
         cornerPieces = [];
     }
     else if (cornerScrambleType == "Twist") {
-        // N = number of non-buffer corners to twist. Each picked piece gets a
-        // random orientation 1 or 2 (CW or CCW). The buffer's CO is auto-set
-        // by the alg composition: Σ orientations ≡ 0 mod 3 across all corners.
+        // The 462 pre-stage may have already handled CO twists (and reduced
+        // extraCount by 1 to peel off the dangling odd-parity J-perm). When
+        // pre462TwistCODone is set, just take the recorded N for the extras
+        // logic below and skip re-applying the twists.
         const N = Math.max(1, Math.min(7, cfg.cornerTwistCount ?? 2));
         const extraCount = Math.max(0, Math.min(7 - N, cfg.cornerTwistExtraCount ?? 0));
         const direction = cfg.cornerTwistDirection || 'mixed';
 
-        // Restrict twist candidates to the user's selection (primary stickers
-        // like 'UFL', 'UBR', …). Empty selection falls back to all non-buffer
-        // pieces — the React-side validator already requires selected ≥ N.
-        const twistTargetSet = new Set(cfg.cornerTwistTargets);
-        const eligibleCornerPieces = twistTargetSet.size > 0
-            ? cornerPieces.filter((i) => twistTargetSet.has(CORNERS[i][0]))
-            : cornerPieces;
-        const shuffledCornerPieces = shuffleArray([...eligibleCornerPieces]);
-        const twistedPieces = shuffledCornerPieces.slice(0, N);
+        if (!pre462TwistCODone) {
+            // Restrict twist candidates to the user's selection (primary stickers
+            // like 'UFL', 'UBR', …). Empty selection falls back to all non-buffer
+            // pieces — the React-side validator already requires selected ≥ N.
+            const twistTargetSet = new Set(cfg.cornerTwistTargets);
+            const eligibleCornerPieces = twistTargetSet.size > 0
+                ? cornerPieces.filter((i) => twistTargetSet.has(CORNERS[i][0]))
+                : cornerPieces;
+            const shuffledCornerPieces = shuffleArray([...eligibleCornerPieces]);
+            const twistedPieces = shuffledCornerPieces.slice(0, N);
 
-        // Decide each twisted piece's orientation (1=CW or 2=CCW) per the
-        // direction setting:
-        //   - N=1: random.
-        //   - 'same' (N≥2): pick one direction at random; all pieces use it.
-        //   - 'mixed' (N≥2): pick 2 random pieces, force one CW and one CCW;
-        //     remaining pieces stay random.
-        const oris = new Array(N);
-        if (N === 1 || direction === 'same') {
-            const fixedOri = N === 1
-                ? Math.floor(Math.random() * 2) + 1
-                : Math.floor(Math.random() * 2) + 1;
-            for (let i = 0; i < N; i++) oris[i] = fixedOri;
-            if (N >= 2 && direction !== 'same') {
-                // unreachable — kept for safety
+            // Decide each twisted piece's orientation (1=CW or 2=CCW) per the
+            // direction setting:
+            //   - N=1: random.
+            //   - 'same' (N≥2): pick one direction at random; all pieces use it.
+            //   - 'mixed' (N≥2): pick 2 random pieces, force one CW and one CCW;
+            //     remaining pieces stay random.
+            const oris = new Array(N);
+            if (N === 1 || direction === 'same') {
+                const fixedOri = N === 1
+                    ? Math.floor(Math.random() * 2) + 1
+                    : Math.floor(Math.random() * 2) + 1;
+                for (let i = 0; i < N; i++) oris[i] = fixedOri;
+            } else {
+                // mixed
+                const indices = shuffleArray(Array.from({ length: N }, (_, i) => i));
+                const cwIdx = indices[0];
+                const ccwIdx = indices[1];
+                for (let i = 0; i < N; i++) {
+                    if (i === cwIdx) oris[i] = 1;
+                    else if (i === ccwIdx) oris[i] = 2;
+                    else oris[i] = Math.floor(Math.random() * 2) + 1;
+                }
             }
-        } else {
-            // mixed
-            const indices = shuffleArray(Array.from({ length: N }, (_, i) => i));
-            const cwIdx = indices[0];
-            const ccwIdx = indices[1];
-            for (let i = 0; i < N; i++) {
-                if (i === cwIdx) oris[i] = 1;
-                else if (i === ccwIdx) oris[i] = 2;
-                else oris[i] = Math.floor(Math.random() * 2) + 1;
-            }
+            const twistTargets = twistedPieces.map((idx, i) => CORNERS[idx][oris[i]]);
+            cornerPieces = cornerPieces.filter((idx) => !twistedPieces.includes(idx));
+
+            // Each CO twist is two Jb-style parity algs composed. Split them into
+            // separate cube.move calls so each shows up individually in the
+            // debug list with its own (UF-UR UFR-X) prefix.
+            twistTargets.forEach((twist, i) => {
+                const piece = CORNERS.find((p) => p.includes(twist));
+                const udTarget = piece[0];
+                const baseLabel = "Corner CO twist " + (i + 1) + "/" + N + " (target=" + twist + ")";
+                _ctxLabel = baseLabel + " step 1/2";
+                cube.move(PARITY_UF_UR_UFR_X[udTarget]);
+                _ctxLabel = baseLabel + " step 2/2";
+                cube.move(PARITY_UF_UR_UFR_X[twist]);
+            });
+            _ctxLabel = '';
+
+            const dirLabel = N === 1 ? 'random' : direction;
+            log("Custom " + N + "-twist (direction=" + dirLabel + "): " + twistTargets.join(" "));
+            addDebugLine("Custom " + N + "-twist (direction=" + dirLabel + "): " + twistTargets.join(" "));
         }
-        const twistTargets = twistedPieces.map((idx, i) => CORNERS[idx][oris[i]]);
-        cornerPieces = cornerPieces.filter((idx) => !twistedPieces.includes(idx));
 
-        twistTargets.forEach((twist, i) => {
-            _ctxLabel = "Corner CO twist " + (i + 1) + "/" + N + " (target=" + twist + ")";
-            cube.move(invertMoves(generateCOAlg([twist])));
-        });
-        _ctxLabel = '';
-
-        const dirLabel = N === 1 ? 'random' : direction;
-        log("Custom " + N + "-twist (direction=" + dirLabel + "): " + twistTargets.join(" "));
-        addDebugLine("Custom " + N + "-twist (direction=" + dirLabel + "): " + twistTargets.join(" "));
-
-        // Extras: cycle / leftover-target on the remaining (7 − N) non-buffer pool.
+        // Extras: cycle / leftover-target on the remaining (7 − N) non-buffer
+        // pool. When the count is odd, the chain has one "dangling parity"
+        // target — pick that one from the user's cfg.parityTargets selection
+        // (filtered to pieces still in the eligible pool). The remaining
+        // count-1 (now even) targets come from the random extras generator.
         if (extraCount > 0) {
-            const extras = generateTwistExtras(cornerPieces, extraCount);
-            const allTargets = [...extras.prefixTargets, ...extras.cycleTargets];
+            let parityTarget = null;
+            let workCornerPieces = cornerPieces;
+            let workCount = extraCount;
+            if (extraCount % 2 === 1) {
+                const eligible = (cfg.parityTargets || []).filter((t) => {
+                    const idx = CORNERS.findIndex((p) => p.includes(t));
+                    return idx >= 0 && cornerPieces.includes(idx);
+                });
+                if (eligible.length > 0) {
+                    parityTarget = eligible[Math.floor(Math.random() * eligible.length)];
+                    const ptIdx = CORNERS.findIndex((p) => p.includes(parityTarget));
+                    workCornerPieces = cornerPieces.filter((idx) => idx !== ptIdx);
+                    workCount = extraCount - 1;
+                }
+            }
+
+            const extras = generateTwistExtras(workCornerPieces, workCount);
+            const allTargets = parityTarget
+                ? [parityTarget, ...extras.prefixTargets, ...extras.cycleTargets]
+                : [...extras.prefixTargets, ...extras.cycleTargets];
+
+            if (parityTarget) {
+                _ctxLabel = "Twist parity target (target=" + parityTarget + ")";
+                cube.move(generateParityAlg("UF", "UR", "UFR", parityTarget));
+                _ctxLabel = '';
+            }
             if (extras.prefixTargets.length === 3) {
                 cube.move(generateParityAlg("UF", "UR", "UFR", extras.prefixTargets[2]));
                 cube.move(generateParityAlg("UF", "UR", "UFR", extras.prefixTargets[1]));
@@ -541,170 +843,13 @@ function generateScramble(options = {}) {
         // Clear cornerPieces so the main comms loop doesn't process leftovers
         cornerPieces = [];
     }
-    else if (cornerScrambleType == "LTCT") {
-        // Check LTCT mode: pieces or stickers
-        const ltctMode = cfg.ltctMode;
-        const ltctCount = cfg.ltctCount;
-
-        if (ltctMode === "stickers") {
-            // Stickers mode: use generateLTCT with specific targets
-            const selectedLTCTParityTargets = [...cfg.ltctParityTargets];
-            const selectedLTCTTwistTargets = [...cfg.ltctTwistTargets];
-
-            // Helper function to check if two targets are on the same piece
-            const isSamePiece = (target1, target2) => {
-                const pieceIndex1 = CORNERS.findIndex(piece => piece.includes(target1));
-                const pieceIndex2 = CORNERS.findIndex(piece => piece.includes(target2));
-                return pieceIndex1 === pieceIndex2;
-            };
-
-            // Get lists of possible targets
-            const parityList = selectedLTCTParityTargets.length > 0 ? selectedLTCTParityTargets :
-                CORNERS.slice(1).flatMap(piece => piece); // All corners except UFR
-            const twistList = selectedLTCTTwistTargets.length > 0 ? selectedLTCTTwistTargets :
-                CORNERS.slice(1).flatMap(piece => piece.slice(1)); // All corners except UFR, twisted orientations only
-
-            // Pre-compute all valid combinations
-            const validCombinations = [];
-            for (let p of parityList) {
-                for (let t of twistList) {
-                    if (!isSamePiece(p, t)) {
-                        validCombinations.push({ parity: p, twist: t });
-                    }
-                }
-            }
-
-            // Check if any valid combination exists
-            if (validCombinations.length === 0) {
-                alert("Error: No valid LTCT combination possible with current selections. Parity and twist targets cannot be on the same piece. Please adjust your target selections.");
-                return;
-            }
-
-            // Randomly select from valid combinations
-            const selectedCombo = validCombinations[Math.floor(Math.random() * validCombinations.length)];
-            const parity = selectedCombo.parity;
-            const twist = selectedCombo.twist;
-
-            // Generate LTCT result
-            const result = generateLTCT(parity, twist, ltctCount);
-            const leftoverStr = result.leftoverPieces.length > 0
-                ? " leftover=" + result.leftoverPieces.map(i => CORNERS[i][0]).join(",")
-                : "";
-            log("LTCT (count=" + ltctCount + "): twist=" + result.twist + " cycle=" + result.targets.join(" ") + " remaining=" + result.remainingTargets.join(" ") + leftoverStr);
-            addDebugLine("LTCT (count=" + ltctCount + "): twist=" + result.twist + " cycle=" + result.targets.join(" ") + " remaining=" + result.remainingTargets.join(" ") + leftoverStr);
-
-            // Apply cube state:
-            // 1. Do twist with CO alg
-            _ctxLabel = "LTCT corner CO twist (target=" + result.twist + ")";
-            cube.move(invertMoves(generateCOAlg([result.twist])));
-            _ctxLabel = '';
-            // 2. Do parity for each target in the cycle
-            for (let target of result.targets) {
-                cube.move(generateParityAlg("UF", "UR", "UFR", target));
-            }
-            // 3. Do parity for each target in the remaining
-            for (let target of result.remainingTargets) {
-                cube.move(generateParityAlg("UF", "UR", "UFR", target));
-            }
-        } else {
-            // Pieces mode: use generateLTCT2 with piece indices
-            const selectedLTCTParityPieces = [...cfg.ltct2ParityTargets];
-            const selectedLTCTTwistPieces = [...cfg.ltct2TwistTargets];
-
-            // Get lists of possible piece indices
-            const parityPieceIndices = selectedLTCTParityPieces.length > 0
-                ? selectedLTCTParityPieces.map(p => CORNERS.findIndex(piece => piece[0] === p))
-                : CORNERS.slice(1).map((_, i) => i + 1); // All except UFR (index 0)
-
-            const twistPieceIndices = selectedLTCTTwistPieces.length > 0
-                ? selectedLTCTTwistPieces.map(p => CORNERS.findIndex(piece => piece[0] === p))
-                : CORNERS.slice(1).map((_, i) => i + 1); // All except UFR (index 0)
-
-            // Pre-compute valid combinations (parity and twist must be different pieces)
-            const validCombinations = [];
-            for (let p of parityPieceIndices) {
-                for (let t of twistPieceIndices) {
-                    if (p !== t) {
-                        validCombinations.push({ parityPieceIndex: p, twistPieceIndex: t });
-                    }
-                }
-            }
-
-            // Check if any valid combination exists
-            if (validCombinations.length === 0) {
-                alert("Error: No valid LTCT combination possible with current selections. Parity and twist pieces must be different. Please adjust your selections.");
-                return;
-            }
-
-            // Randomly select from valid combinations
-            const selectedCombo = validCombinations[Math.floor(Math.random() * validCombinations.length)];
-
-            // Generate LTCT result using piece-based function
-            const result = generateLTCT2(selectedCombo.parityPieceIndex, selectedCombo.twistPieceIndex, ltctCount);
-            const leftoverStr = result.leftoverPieces.length > 0
-                ? " leftover=" + result.leftoverPieces.map(i => CORNERS[i][0]).join(",")
-                : "";
-            log("LTCT (count=" + ltctCount + "): twist=" + result.twist + " cycle=" + result.targets.join(" ") + " remaining=" + result.remainingTargets.join(" ") + leftoverStr);
-            addDebugLine("LTCT (count=" + ltctCount + "): twist=" + result.twist + " cycle=" + result.targets.join(" ") + " remaining=" + result.remainingTargets.join(" ") + leftoverStr);
-
-            // Apply cube state:
-            // 1. Do twist with CO alg
-            _ctxLabel = "LTCT corner CO twist (target=" + result.twist + ")";
-            cube.move(invertMoves(generateCOAlg([result.twist])));
-            _ctxLabel = '';
-            // 2. Do parity for each target in the cycle
-            for (let target of result.targets) {
-                cube.move(generateParityAlg("UF", "UR", "UFR", target));
-            }
-            // 3. Do parity for each target in the remaining
-            for (let target of result.remainingTargets) {
-                cube.move(generateParityAlg("UF", "UR", "UFR", target));
-            }
-        }
-
-        // Clear cornerPieces since we've handled all corners
-        cornerPieces = [];
-    }
-    else if (cornerScrambleType == "LTCT_UBL") {
-        const parity = "UBL";
-        const parityPieceIndex = CORNERS.findIndex(piece => piece.includes(parity));
-        if (parityPieceIndex !== -1) {
-            cornerPieces = cornerPieces.filter(x => x != parityPieceIndex);
-        }
-        let shuffledCornerPieces = shuffleArray(cornerPieces);
-        let twistOri = Math.floor(Math.random() * 2) + 1; // random int 1 or 2
-        let twist = CORNERS[shuffledCornerPieces[0]][twistOri];
-        cornerPieces = cornerPieces.filter(x => x != shuffledCornerPieces[0]);
-
-        _ctxLabel = "LTCT corner CO twist (target=" + twist + ")";
-        cube.move(invertMoves(generateCOAlg([twist])));
-        _ctxLabel = '';
-        cube.move(generateParityAlg("UF", "UR", "UFR", parity));
-        log("LTCT: " + parity + "[" + twist + "]");
-        addDebugLine("LTCT: " + parity + "[" + twist + "]");
-    }
-    else if (cornerScrambleType == "LTCT_special") {
-        const specialParityTargets = ["UBL", "UBR", "UFL", "LUF", "BUR"];
-        const parity = specialParityTargets[Math.floor(Math.random() * specialParityTargets.length)];
-        const parityPieceIndex = CORNERS.findIndex(piece => piece.includes(parity));
-        if (parityPieceIndex !== -1) {
-            cornerPieces = cornerPieces.filter(x => x != parityPieceIndex);
-        }
-        let shuffledCornerPieces = shuffleArray(cornerPieces);
-        let twistOri = Math.floor(Math.random() * 2) + 1; // random int 1 or 2
-        let twist = CORNERS[shuffledCornerPieces[0]][twistOri];
-        cornerPieces = cornerPieces.filter(x => x != shuffledCornerPieces[0]);
-
-        _ctxLabel = "LTCT corner CO twist (target=" + twist + ")";
-        cube.move(invertMoves(generateCOAlg([twist])));
-        _ctxLabel = '';
-        cube.move(generateParityAlg("UF", "UR", "UFR", parity));
-        log("LTCT: " + parity + "[" + twist + "]");
-        addDebugLine("LTCT: " + parity + "[" + twist + "]");
-    }
     else if (cornerScrambleType == "2-Swap") {
         // Buffer order for "Only select later buffers" option
-        const T2C_BUFFER_ORDER = ["UFL", "UBR", "UBL", "DFR", "DFL", "DBL", "DBR"];
+        // T2C buffer order follows the user's drag-and-drop corner order,
+        // minus the active buffer at index 0. Used for the "Only later
+        // buffers" second-piece constraint — keeps the engine in sync with
+        // whatever pool the React side displays.
+        const T2C_BUFFER_ORDER = (cfg.cornerBufferOrder || []).slice(1);
 
         // Check 2-Swap mode: unoriented (T2C) or oriented (Floating 2C)
         const twoSwapMode = cfg.twoSwapMode;
@@ -745,8 +890,9 @@ function generateScramble(options = {}) {
             availableSecondPieceIndices = cornerPieces.filter(i => i !== firstPieceIndex);
         }
 
-        // Generate 2-Swap result (isOriented = true means thirdTarget = firstTarget)
-        const result = generate2C(firstPieceIndex, availableSecondPieceIndices, isOriented);
+        // Generate 2-Swap result (isOriented = true means thirdTarget = firstTarget).
+        // extraCount: 0/2/4 = simple single-cycle extras; 6 = legacy split.
+        const result = generate2C(firstPieceIndex, availableSecondPieceIndices, isOriented, cfg.t2cExtraCount);
         const modeName = isOriented ? "2-Swap (Oriented)" : "2-Swap (Unoriented)";
         log(modeName + ": firstTarget=" + result.firstTarget + " secondTarget=" + result.secondTarget + " thirdTarget=" + result.thirdTarget);
         log(modeName + ": cycleTargets=" + result.cycleTargets.join(" "));
@@ -755,16 +901,26 @@ function generateScramble(options = {}) {
         addDebugLine(modeName + ": cycleTargets=" + result.cycleTargets.join(" "));
         addDebugLine(modeName + ": remainingTargets=" + result.remainingTargets.join(" "));
 
-        // Apply cube state: parity alg with UF UR UFR for each target in order
+        // Apply cube state: parity alg with UF UR UFR for each target in
+        // order (third → second → first → cycle → remaining). Labels mirror
+        // the edge 2-Swap branch for consistency.
+        _ctxLabel = "2-Swap setup: third (target=" + result.thirdTarget + ")";
         cube.move(generateParityAlg("UF", "UR", "UFR", result.thirdTarget));
+        _ctxLabel = "2-Swap setup: second (target=" + result.secondTarget + ")";
         cube.move(generateParityAlg("UF", "UR", "UFR", result.secondTarget));
+        _ctxLabel = "2-Swap setup: first (target=" + result.firstTarget + ")";
         cube.move(generateParityAlg("UF", "UR", "UFR", result.firstTarget));
-        for (let target of result.cycleTargets) {
+        const t2cTotalCycle = result.cycleTargets.length;
+        result.cycleTargets.forEach((target, i) => {
+            _ctxLabel = "2-Swap extra " + (i + 1) + "/" + t2cTotalCycle + " (target=" + target + ")";
             cube.move(generateParityAlg("UF", "UR", "UFR", target));
-        }
-        for (let target of result.remainingTargets) {
+        });
+        const t2cTotalRemaining = (result.remainingTargets || []).length;
+        result.remainingTargets.forEach((target, i) => {
+            _ctxLabel = "2-Swap remaining " + (i + 1) + "/" + t2cTotalRemaining + " (target=" + target + ")";
             cube.move(generateParityAlg("UF", "UR", "UFR", target));
-        }
+        });
+        _ctxLabel = '';
 
         // Clear cornerPieces since we've handled all corners
         cornerPieces = [];
@@ -781,6 +937,19 @@ function generateScramble(options = {}) {
         const solutionMoves = randomCube.solve();
         // Apply the inverse to get from solved to the random state
         cube.move(invertMoves(solutionMoves));
+
+        // Parity fix: a U quarter-turn flips both corner and edge parity by 1
+        // simultaneously (preserves solvability). If the user pinned a parity
+        // and the generated state's corner parity doesn't match, prepend a U.
+        if (cfg.cornerRandomParity === 'even' || cfg.cornerRandomParity === 'odd') {
+            const want = cfg.cornerRandomParity === 'odd' ? 1 : 0;
+            const have = Cube.fromString(cube.asString()).cornerParity();
+            if (have !== want) {
+                _ctxLabel = "Random corner parity fix (want=" + cfg.cornerRandomParity + ")";
+                cube.move("U");
+                _ctxLabel = '';
+            }
+        }
 
         // Clear cornerPieces since we've handled all corners
         cornerPieces = [];
@@ -912,110 +1081,113 @@ function generateScramble(options = {}) {
         // one non-buffer target + toggles the buffer, so the buffer ends
         // flipped iff K is odd — even K means K non-buffer flips; odd K
         // silently adds the buffer for parity.
-        const flipCountByMode = Math.max(1, Math.min(11, cfg.flipCustomCount));
+        const flipCountByMode = pre462FlipsEODone
+            ? pre462FlipsContext.flipCountByMode
+            : Math.max(1, Math.min(11, cfg.flipCustomCount));
         const oddExtras = flipExtraCount % 2 === 1;
 
-        // Pool of eligible flip pieces (exclude buffer + parity edge).
-        const flipCandidates = edgePieces.filter(i => i !== parityEdgeIndex);
+        let chosen;
+        let flipBuffer;
+        if (pre462FlipsEODone) {
+            // Pre-stage already enumerated combos, picked, and applied EO.
+            // Resume from extras with the persisted context.
+            chosen = pre462FlipsContext.chosen;
+            flipBuffer = pre462FlipsContext.flipBuffer;
+        } else {
+            // Pool of eligible flip pieces (exclude buffer + parity edge).
+            const flipCandidates = edgePieces.filter(i => i !== parityEdgeIndex);
 
-        const selectedFlipStickers = new Set(cfg.flipTargets);
-        const eligibleFlipPieces = (selectedFlipStickers.size === 0)
-            ? flipCandidates
-            : flipCandidates.filter(i => selectedFlipStickers.has(EDGES[i][0]));
+            const selectedFlipStickers = new Set(cfg.flipTargets);
+            const eligibleFlipPieces = (selectedFlipStickers.size === 0)
+                ? flipCandidates
+                : flipCandidates.filter(i => selectedFlipStickers.has(EDGES[i][0]));
 
-        const selectedParityStickers = [...cfg.flipParityTargets];
-        const eligibleParityStickers = (selectedParityStickers.length === 0)
-            ? edgePieces.flatMap(i => EDGES[i])
-            : selectedParityStickers;
+            const selectedParityStickers = [...cfg.flipParityTargets];
+            const eligibleParityStickers = (selectedParityStickers.length === 0)
+                ? edgePieces.flatMap(i => EDGES[i])
+                : selectedParityStickers;
 
-        // Brute-force enumerate valid (flipPieces, parityTargetSticker) combinations.
-        // Constraints:
-        //   - flipPieces: distinct pieces from eligibleFlipPieces, count = flipCountByMode
-        //   - parityTargetSticker (only when oddExtras): on a piece NOT in flipPieces and not buffer
-        //   - enough remaining pieces to fill the rest of the extras count
-        const validCombos = [];
-        const flipPieceCombos = (function () {
-            const k = flipCountByMode;
-            if (k === 0) return [[]];
-            if (k > eligibleFlipPieces.length) return [];
-            const out = [];
-            (function rec(start, combo) {
-                if (combo.length === k) { out.push(combo.slice()); return; }
-                for (let i = start; i < eligibleFlipPieces.length; i++) {
-                    combo.push(eligibleFlipPieces[i]);
-                    rec(i + 1, combo);
-                    combo.pop();
-                }
-            })(0, []);
-            return out;
-        })();
+            // Brute-force enumerate valid (flipPieces, parityTargetSticker) combinations.
+            // Constraints:
+            //   - flipPieces: distinct pieces from eligibleFlipPieces, count = flipCountByMode
+            //   - parityTargetSticker (only when oddExtras): on a piece NOT in flipPieces and not buffer
+            //   - enough remaining pieces to fill the rest of the extras count
+            const validCombos = [];
+            const flipPieceCombos = (function () {
+                const k = flipCountByMode;
+                if (k === 0) return [[]];
+                if (k > eligibleFlipPieces.length) return [];
+                const out = [];
+                (function rec(start, combo) {
+                    if (combo.length === k) { out.push(combo.slice()); return; }
+                    for (let i = start; i < eligibleFlipPieces.length; i++) {
+                        combo.push(eligibleFlipPieces[i]);
+                        rec(i + 1, combo);
+                        combo.pop();
+                    }
+                })(0, []);
+                return out;
+            })();
 
-        for (const fp of flipPieceCombos) {
-            // Pieces remaining for extras after flips removed
-            const afterFlipPool = edgePieces.filter(i => !fp.includes(i));
-            if (oddExtras) {
-                // Need a parity target sticker, and (count - 1) remaining pieces after parity-piece removal
-                for (const stk of eligibleParityStickers) {
-                    const stkPieceIdx = EDGES.findIndex(p => p.includes(stk));
-                    if (stkPieceIdx < 0) continue;
-                    if (fp.includes(stkPieceIdx)) continue;
-                    const afterParityPool = afterFlipPool.filter(i => i !== stkPieceIdx);
-                    // Need (count - 1) extras targets on distinct pieces from afterParityPool,
-                    // OR for n+1 split: count = n+1 means we use all leftover pieces with one repeat.
-                    const remainingNeeded = flipExtraCount - 1;
-                    const n = afterFlipPool.length; // n = pool size after flips
-                    if (flipExtraCount === n + 1) {
-                        // 2-cycle split: parity target = firstTarget, parity piece appears twice
-                        // (other sticker as third target). After parity piece, need n-1 more pieces.
-                        // afterParityPool size = n - 1 → need exactly n - 1 = remainingNeeded - 1
-                        // (n-1 distinct pieces fills remainingNeeded - 1 = count - 2 of the targets;
-                        // the other "double" target is the third sticker on the parity piece itself).
-                        // Actually for n+1 case: prefix uses parityPiece + 1 other piece; cycle uses
-                        // the rest. Total distinct pieces used = 2 + (n - 2) = n = afterFlipPool.length.
-                        // Check we have at least 1 piece for "secondPiece" of prefix + (n-2) for cycle.
-                        if (afterParityPool.length >= n - 1) {
-                            validCombos.push({ flipPieces: fp, parityPieceIdx: stkPieceIdx, paritySticker: stk });
-                        }
-                    } else {
-                        if (afterParityPool.length >= remainingNeeded) {
+            for (const fp of flipPieceCombos) {
+                const afterFlipPool = edgePieces.filter(i => !fp.includes(i));
+                if (oddExtras) {
+                    for (const stk of eligibleParityStickers) {
+                        const stkPieceIdx = EDGES.findIndex(p => p.includes(stk));
+                        if (stkPieceIdx < 0) continue;
+                        if (fp.includes(stkPieceIdx)) continue;
+                        const afterParityPool = afterFlipPool.filter(i => i !== stkPieceIdx);
+                        const remainingNeeded = flipExtraCount - 1;
+                        const n = afterFlipPool.length;
+                        if (flipExtraCount === n + 1) {
+                            if (afterParityPool.length >= n - 1) {
+                                validCombos.push({ flipPieces: fp, parityPieceIdx: stkPieceIdx, paritySticker: stk });
+                            }
+                        } else if (afterParityPool.length >= remainingNeeded) {
                             validCombos.push({ flipPieces: fp, parityPieceIdx: stkPieceIdx, paritySticker: stk });
                         }
                     }
-                }
-            } else {
-                // Even count: no parity target needed. Just check we can fit `count` distinct pieces.
-                const n = afterFlipPool.length;
-                if (flipExtraCount === 0 || flipExtraCount <= n) {
-                    validCombos.push({ flipPieces: fp, parityPieceIdx: null, paritySticker: null });
+                } else {
+                    const n = afterFlipPool.length;
+                    if (flipExtraCount === 0 || flipExtraCount <= n) {
+                        validCombos.push({ flipPieces: fp, parityPieceIdx: null, paritySticker: null });
+                    }
                 }
             }
+
+            if (validCombos.length === 0) {
+                alert("Error: No valid Flips combination possible with current selections. " +
+                      "Adjust flip targets, parity targets, or counts.");
+                return;
+            }
+
+            chosen = validCombos[Math.floor(Math.random() * validCombos.length)];
+
+            // Apply flip alg(s). Use otherEdgeBuffer when corner=Parity AND oddExtras (correction will fire).
+            flipBuffer = (cornerScrambleType === "Parity" && oddExtras)
+                ? ((edgeBuffer === "UF") ? "UR" : "UF")
+                : edgeBuffer;
+
+            const flipPiecesChosen = chosen.flipPieces;
+            const flipStickers = flipPiecesChosen.map(idx => EDGES[idx][0]);
+            const flipPieceSet = new Set(flipPiecesChosen);
+            edgePieces = edgePieces.filter(x => !flipPieceSet.has(x));
+            // Each EO flip is two parity algs (one per sticker of the edge).
+            // Split them into separate cube.move calls so each shows up
+            // individually in the debug list with its own parity prefix.
+            for (const sticker of flipStickers) {
+                const piece = EDGES.find((p) => p.includes(sticker));
+                const baseLabel = "Edge EO flip (sticker=" + sticker + ", buffer=" + flipBuffer + ")";
+                _ctxLabel = baseLabel + " step 1/2";
+                cube.move(getEdgeParityAlg(flipBuffer, piece[0]));
+                _ctxLabel = baseLabel + " step 2/2";
+                cube.move(getEdgeParityAlg(flipBuffer, piece[1]));
+            }
+            _ctxLabel = '';
+            const flipLogLabel = flipCountByMode + "-flip";
+            log(flipLogLabel + ": " + flipStickers.join(" ") + " (flipBuffer=" + flipBuffer + ")");
+            addDebugLine(flipLogLabel + ": " + flipStickers.join(" ") + " (flipBuffer=" + flipBuffer + ")");
         }
-
-        if (validCombos.length === 0) {
-            alert("Error: No valid Flips combination possible with current selections. " +
-                  "Adjust flip targets, parity targets, or counts.");
-            return;
-        }
-
-        const chosen = validCombos[Math.floor(Math.random() * validCombos.length)];
-
-        // Apply flip alg(s). Use otherEdgeBuffer when corner=Parity AND oddExtras (correction will fire).
-        const flipBuffer = (cornerScrambleType === "Parity" && oddExtras)
-            ? ((edgeBuffer === "UF") ? "UR" : "UF")
-            : edgeBuffer;
-
-        const flipPiecesChosen = chosen.flipPieces;
-        const flipStickers = flipPiecesChosen.map(idx => EDGES[idx][0]);
-        const flipPieceSet = new Set(flipPiecesChosen);
-        edgePieces = edgePieces.filter(x => !flipPieceSet.has(x));
-        for (const sticker of flipStickers) {
-            _ctxLabel = "Edge EO flip (sticker=" + sticker + ", buffer=" + flipBuffer + ")";
-            cube.move(generateEOAlg([sticker], flipBuffer));
-        }
-        _ctxLabel = '';
-        const flipLogLabel = flipCountByMode + "-flip";
-        log(flipLogLabel + ": " + flipStickers.join(" ") + " (flipBuffer=" + flipBuffer + ")");
-        addDebugLine(flipLogLabel + ": " + flipStickers.join(" ") + " (flipBuffer=" + flipBuffer + ")");
 
         // Apply extras (count > 0).
         if (flipExtraCount > 0) {
@@ -1203,8 +1375,10 @@ function generateScramble(options = {}) {
         log("Edge Floating: floatingBuffer=" + floatingBuffer + " (distribution=" + distribution + ", from " + candidates.length + ") seq=" + seq.join(" "));
         addDebugLine("Edge Floating: floatingBuffer=" + floatingBuffer + " (distribution=" + distribution + ", from " + candidates.length + ") seq=" + seq.join(" "));
 
+        edgeFloatingOddParity = seq.length % 2 === 1;
+
         seq.forEach((target, i) => {
-            _ctxLabel = "Floating cycle " + (i + 1) + "/" + seq.length + " (target=" + target + ")";
+            _ctxLabel = "Edge Floating " + (i + 1) + "/" + seq.length + " (target=" + target + ")";
             cube.move(getEdgeParityAlg(edgeBuffer, target));
         });
         _ctxLabel = '';
@@ -1267,11 +1441,11 @@ function generateScramble(options = {}) {
         // _ctxLabel so the debug footer reads cleanly.
         _ctxLabel = "2-Swap: Jb perm";
         cube.move(Jb_PERM);
-        _ctxLabel = "2-Swap setup: third target = " + result.thirdTarget;
+        _ctxLabel = "2-Swap setup: third (target=" + result.thirdTarget + ")";
         cube.move(getEdgeParityAlg(edgeBuffer, result.thirdTarget));
-        _ctxLabel = "2-Swap setup: second target = " + result.secondTarget;
+        _ctxLabel = "2-Swap setup: second (target=" + result.secondTarget + ")";
         cube.move(getEdgeParityAlg(edgeBuffer, result.secondTarget));
-        _ctxLabel = "2-Swap setup: first target = " + result.firstTarget;
+        _ctxLabel = "2-Swap setup: first (target=" + result.firstTarget + ")";
         cube.move(getEdgeParityAlg(edgeBuffer, result.firstTarget));
         const totalCycle = result.cycleTargets.length;
         result.cycleTargets.forEach((target, i) => {
@@ -1338,6 +1512,20 @@ function generateScramble(options = {}) {
         cube.move(invertMoves(finalCube.solve()));
         _ctxLabel = '';
 
+        // Parity fix: corner/edge parities are now equal (the UF/UR swap
+        // above ensured solvability). If the user pinned a parity and the
+        // current value doesn't match, a U flips both back into the wanted
+        // configuration without breaking solvability.
+        if (cfg.edgeRandomParity === 'even' || cfg.edgeRandomParity === 'odd') {
+            const want = cfg.edgeRandomParity === 'odd' ? 1 : 0;
+            const have = Cube.fromString(cube.asString()).edgeParity();
+            if (have !== want) {
+                _ctxLabel = "Random edge parity fix (want=" + cfg.edgeRandomParity + ")";
+                cube.move("U");
+                _ctxLabel = '';
+            }
+        }
+
         // Clear edgePieces since we've handled all edges
         edgePieces = [];
     }
@@ -1392,6 +1580,18 @@ function generateScramble(options = {}) {
         }
     }
 
+    // Floating double-odd parity correction: when BOTH sides ran a Floating
+    // chain whose length was odd, each chain leaked one stray Jb-half. The
+    // two leftovers together form exactly one Jb perm — apply one Jb here
+    // to cancel them and leave the intended cycles clean on each side.
+    if (cornerFloatingOddParity && edgeFloatingOddParity) {
+        _ctxLabel = "Floating double-odd parity correction";
+        cube.move(Jb_PERM);
+        _ctxLabel = '';
+        log("Floating double-odd parity correction: applied Jb perm");
+        addDebugLine("Floating double-odd parity correction: applied Jb perm");
+    }
+
     // get the scramble and do in correct orientation
     scramble = invertMoves(cube.solve());
     } finally {
@@ -1404,8 +1604,14 @@ function generateScramble(options = {}) {
         addDebugLine("");
         addDebugLine("Applied algs:");
         appliedAlgs.forEach((entry, i) => {
-            const labelPart = entry.label ? entry.label + ': ' : '';
-            addDebugLine("  " + (i + 1) + ". " + labelPart + entry.alg);
+            // Show both the parity-alg prefix (if any) and the contextual
+            // label set by the engine, so split sub-algs still tell you which
+            // higher-level operation they belong to.
+            let head = '';
+            if (entry.prefix && entry.label) head = entry.prefix + ' [' + entry.label + '] ';
+            else if (entry.prefix) head = entry.prefix + ' ';
+            else if (entry.label) head = entry.label + ': ';
+            addDebugLine("  " + (i + 1) + ". " + head + entry.alg);
         });
         // Concatenated single-line exec — useful for paste/diff but visually
         // noisy in the debug pill. Kept commented for future re-enabling.

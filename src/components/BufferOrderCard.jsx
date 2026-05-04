@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useScrambleConfig } from '../state/ScrambleConfigContext.jsx';
+import { useLocalStorage } from '../hooks/useLocalStorage.js';
 import {
     DEFAULT_CORNER_BUFFER_ORDER,
     DEFAULT_EDGE_BUFFER_ORDER,
     ORIENTATION_OPTIONS,
+    orientationLabel,
 } from '../constants.js';
 
 function reconcileOrder(saved, defaults) {
@@ -23,6 +25,13 @@ function enforceEdgeBufferConstraint(order) {
     const rest = order.filter((p) => p !== 'UF' && p !== 'UR');
     const front = ufIdx <= urIdx ? ['UF', 'UR'] : ['UR', 'UF'];
     return [...front, ...rest];
+}
+
+// UFR is the only supported active corner buffer — lock it at position 0.
+function enforceCornerBufferConstraint(order) {
+    if (order[0] === 'UFR') return order;
+    const rest = order.filter((p) => p !== 'UFR');
+    return ['UFR', ...rest];
 }
 
 function BufferOrderList({ value, onChange, validate, secondaryIdx }) {
@@ -96,28 +105,63 @@ function BufferOrderList({ value, onChange, validate, secondaryIdx }) {
     );
 }
 
-export default function BufferOrderCard() {
+// BLD-orientation icon variant. Both '3x3' and '1x1' are pre-generated under
+// public/orientations/<variant>/ — flip this single line to switch.
+const ORIENTATION_ICON_VARIANT = '3x3';
+// const ORIENTATION_ICON_VARIANT = '1x1';
+
+export default function BufferOrderCard({ activeTab, setActiveTab }) {
     const { config, updateField } = useScrambleConfig();
-    const safeCornerOrder = reconcileOrder(config.cornerBufferOrder, DEFAULT_CORNER_BUFFER_ORDER);
+    const safeCornerOrder = enforceCornerBufferConstraint(
+        reconcileOrder(config.cornerBufferOrder, DEFAULT_CORNER_BUFFER_ORDER),
+    );
     const safeEdgeOrder = enforceEdgeBufferConstraint(
         reconcileOrder(config.edgeBufferOrder, DEFAULT_EDGE_BUFFER_ORDER),
     );
+    const [collapsed, setCollapsed] = useLocalStorage('settingsCollapsed', false);
 
     return (
         <div className="card">
-            <div className="card-header">
-                <span className="card-title">Buffer order</span>
-            </div>
-            <div className="card-body">
+            <button
+                type="button"
+                className="card-header card-header-toggle"
+                onClick={() => setCollapsed(!collapsed)}
+                aria-expanded={!collapsed}
+            >
+                <span className="card-title">Settings</span>
+                <svg
+                    className={`card-toggle-caret ${collapsed ? 'collapsed' : ''}`}
+                    viewBox="0 0 16 16"
+                    aria-hidden="true"
+                >
+                    <path d="M2 5 L8 12 L14 5 Z" fill="currentColor" />
+                </svg>
+            </button>
+            {!collapsed && <div className="card-body">
+                {setActiveTab && (
+                    <div className="row">
+                        <label className="row-label" htmlFor="app-mode">Generate using</label>
+                        <select
+                            id="app-mode"
+                            className="select"
+                            value={activeTab}
+                            onChange={(e) => setActiveTab(e.target.value)}
+                        >
+                            <option value="scrambler">Scrambler</option>
+                            <option value="bldHelper">BLD Helper</option>
+                        </select>
+                    </div>
+                )}
                 <div className="row-stack-2col">
-                    <div className="row-label">Corners</div>
+                    <div className="row-label">Corner buffer order</div>
                     <BufferOrderList
                         value={safeCornerOrder}
                         onChange={updateField('cornerBufferOrder')}
+                        validate={(order) => order[0] === 'UFR'}
                     />
                 </div>
                 <div className="row-stack-2col">
-                    <div className="row-label">Edges</div>
+                    <div className="row-label">Edge buffer order</div>
                     <BufferOrderList
                         value={safeEdgeOrder}
                         onChange={updateField('edgeBufferOrder')}
@@ -130,18 +174,50 @@ export default function BufferOrderCard() {
                 </div>
                 <div className="row">
                     <label className="row-label" htmlFor="bld-orientation">BLD orientation</label>
+                    <div className="orientation-control">
+                        <img
+                            className="orientation-icon"
+                            src={`./orientations/${ORIENTATION_ICON_VARIANT}/${config.holdingOrientation}.svg`}
+                            alt=""
+                            aria-hidden="true"
+                            title={orientationLabel(config.holdingOrientation)}
+                        />
+                        <select
+                            id="bld-orientation"
+                            className="select"
+                            value={config.holdingOrientation}
+                            onChange={(e) => updateField('holdingOrientation')(e.target.value)}
+                        >
+                            {Object.keys(ORIENTATION_OPTIONS).map((key) => (
+                                <option key={key} value={key}>{orientationLabel(key)}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+                <div className="row">
+                    <label className="row-label" htmlFor="target-order">Target order</label>
                     <select
-                        id="bld-orientation"
+                        id="target-order"
                         className="select"
-                        value={config.holdingOrientation}
-                        onChange={(e) => updateField('holdingOrientation')(e.target.value)}
+                        value={config.targetOrder || 'piece'}
+                        onChange={(e) => updateField('targetOrder')(e.target.value)}
                     >
-                        {Object.entries(ORIENTATION_OPTIONS).map(([key, label]) => (
-                            <option key={key} value={key}>{label}</option>
-                        ))}
+                        <option value="piece">By piece</option>
+                        <option value="face">By face (ULFRBD, Speffz ordering)</option>
                     </select>
                 </div>
-            </div>
+                <div className="row">
+                    <span className="row-label">Show cube</span>
+                    <label className="toggle">
+                        <input
+                            type="checkbox"
+                            checked={config.showCube !== false}
+                            onChange={(e) => updateField('showCube')(e.target.checked)}
+                        />
+                        <span className="toggle-switch"></span>
+                    </label>
+                </div>
+            </div>}
         </div>
     );
 }

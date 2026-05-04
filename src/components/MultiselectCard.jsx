@@ -31,7 +31,7 @@ export default function MultiselectCard({ title, allPieces, value, onChange }) {
             </div>
             <div className="action-row" style={{ marginBottom: 8 }}>
                 <button type="button" className="btn btn-sm" onClick={() => commit([...allPieces])}>Select all</button>
-                <button type="button" className="btn btn-sm btn-ghost" onClick={() => commit([])}>Unselect all</button>
+                <button type="button" className="btn btn-sm" onClick={() => commit([])}>Unselect all</button>
             </div>
             <div className="checks">
                 {allPieces.map((p) => (

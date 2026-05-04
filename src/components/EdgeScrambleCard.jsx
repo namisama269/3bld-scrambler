@@ -6,6 +6,7 @@ import {
     getEdgeParityTargets,
     getFlipTargets,
     getFlipParityTargets,
+    orderTargets,
 } from '../constants.js';
 import MultiselectCard from './MultiselectCard.jsx';
 import { useLocalStorage } from '../hooks/useLocalStorage.js';
@@ -56,23 +57,24 @@ export default function EdgeScrambleCard() {
     const type = config.edgeScrambleType;
     const edgeBuffer = config.edgeBufferOrder[0];
 
-    const edgeParityTargetList = getEdgeParityTargets(edgeBuffer);
-    const flipTargetList = getFlipTargets(edgeBuffer);
-    const flipParityTargetList = getFlipParityTargets(edgeBuffer);
+    const order = config.targetOrder || 'piece';
+    const edgeParityTargetList = orderTargets(getEdgeParityTargets(edgeBuffer), order);
+    const flipTargetList = orderTargets(getFlipTargets(edgeBuffer), order);
+    const flipParityTargetList = orderTargets(getFlipParityTargets(edgeBuffer), order);
     const oddExtras = config.flipExtraCount % 2 === 1;
     // F2E first-piece order follows the user's edge buffer order, excluding
     // only the active buffer (so the parity-edge / "second buffer" is still
     // a valid first-piece candidate). When "Only select later buffers" is
     // on, the LAST piece in the order is hidden — picking it as first-piece
     // would leave no valid second-piece.
-    const activeEdgeBuffer = config.edgeBufferOrder[0];
-    const f2ePieceOrderAll = config.edgeBufferOrder.filter((p) => p !== activeEdgeBuffer);
+    const f2ePieceOrderAll = config.edgeBufferOrder.filter((p) => p !== edgeBuffer);
     const f2ePieceOrder = config.f2eOnlyLaterBuffers
         ? f2ePieceOrderAll.slice(0, -1)
         : f2ePieceOrderAll;
 
-    const [advancedOpen, setAdvancedOpen] = useLocalStorage('flipsTargetsDisclosure', false);
-    const [f2eAdvancedOpen, setF2eAdvancedOpen] = useLocalStorage('f2eTargetsDisclosure', false);
+    const [flipsAdvancedOpen, setFlipsAdvancedOpen] = useLocalStorage('edgeFlipsTargetsDisclosure', false);
+    const [f2eAdvancedOpen, setF2eAdvancedOpen] = useLocalStorage('edgeF2eTargetsDisclosure', false);
+    const [targetsAdvancedOpen, setTargetsAdvancedOpen] = useLocalStorage('edgeTargetsParityDisclosure', false);
 
     return (
         <div className="card">
@@ -94,6 +96,21 @@ export default function EdgeScrambleCard() {
                     </select>
                 </div>
 
+                {type === 'Random' && (
+                    <div className="row">
+                        <span className="row-label">Parity</span>
+                        <Segmented
+                            value={config.edgeRandomParity}
+                            onChange={updateField('edgeRandomParity')}
+                            options={[
+                                { value: 'any', label: 'Any' },
+                                { value: 'even', label: 'Even' },
+                                { value: 'odd', label: 'Odd' },
+                            ]}
+                        />
+                    </div>
+                )}
+
                 {type === 'Targets' && (
                     <>
                         <div className="row">
@@ -105,12 +122,21 @@ export default function EdgeScrambleCard() {
                             />
                         </div>
                         {config.edgeTargetCount % 2 === 1 && (
-                            <MultiselectCard
-                                title="Parity-target selection"
-                                allPieces={edgeParityTargetList}
-                                value={config.edgeParityTargets}
-                                onChange={updateField('edgeParityTargets')}
-                            />
+                            <details
+                                className="disclosure"
+                                open={!!targetsAdvancedOpen}
+                                onToggle={(e) => setTargetsAdvancedOpen(e.currentTarget.open)}
+                            >
+                                <summary>Advanced target settings</summary>
+                                <div className="disclosure-body">
+                                    <MultiselectCard
+                                        title="Parity targets"
+                                        allPieces={edgeParityTargetList}
+                                        value={config.edgeParityTargets}
+                                        onChange={updateField('edgeParityTargets')}
+                                    />
+                                </div>
+                            </details>
                         )}
                     </>
                 )}
@@ -196,7 +222,7 @@ export default function EdgeScrambleCard() {
                 {type === 'Flips' && (
                     <>
                         <div className="row">
-                            <span className="row-label">Number of flips</span>
+                            <span className="row-label">Number of non-buffer flips</span>
                             <Segmented
                                 value={config.flipCustomCount}
                                 onChange={updateField('flipCustomCount')}
@@ -211,8 +237,8 @@ export default function EdgeScrambleCard() {
 
                         <details
                             className="disclosure"
-                            open={!!advancedOpen}
-                            onToggle={(e) => setAdvancedOpen(e.currentTarget.open)}
+                            open={!!flipsAdvancedOpen}
+                            onToggle={(e) => setFlipsAdvancedOpen(e.currentTarget.open)}
                         >
                             <summary>Advanced target settings</summary>
                             <div className="disclosure-body">

@@ -1,0 +1,15 @@
+{
+    "_comment": "Render parameters for public/logo.png. Paste this into the icon-generation tool to regenerate the same icon at any size or with palette tweaks. Color indices follow the renderer's face mapping (0=yellow, 1=red, 2=blue, 3=white, 4=orange, 5=green). The leading 'y' rotation matters — it's what places the white BLD-buffer sticker on the visible face.",
+    "viewportRotations": [[1, 22], [0, -30], [2, 0]],
+    "width": 512,
+    "height": 512,
+    "colorScheme": {
+        "0": "#f0ff00",
+        "1": "#e8120a",
+        "2": "#2055ff",
+        "3": "#ffffff",
+        "4": "#fb8c00",
+        "5": "#00d800"
+    },
+    "algorithm": "y F2 D' F2 L2 U2 L2 U' R2 D' R2 B2 F2 U' L' U2 F D2 F R D' U R2"
+}

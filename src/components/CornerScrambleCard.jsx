@@ -3,10 +3,9 @@ import { useScrambleConfig } from '../state/ScrambleConfigContext.jsx';
 import {
     CORNER_SCRAMBLE_TYPES,
     CORNER_WEIGHTS,
-    T2C_FIRST_PIECES,
     getTargetsExcludingBuffer,
-    getTwistTargets,
     getUDStickerTargets,
+    orderTargets,
 } from '../constants.js';
 import MultiselectCard from './MultiselectCard.jsx';
 import { useLocalStorage } from '../hooks/useLocalStorage.js';
@@ -77,11 +76,21 @@ export default function CornerScrambleCard() {
     const type = config.cornerScrambleType;
     const cornerBuffer = config.cornerBufferOrder[0];
 
-    const allTargets = getTargetsExcludingBuffer(cornerBuffer);
-    const twistTargets = getTwistTargets(cornerBuffer);
-    const udStickerTargets = getUDStickerTargets(cornerBuffer);
+    const order = config.targetOrder || 'piece';
+    const allTargets = orderTargets(getTargetsExcludingBuffer(cornerBuffer), order);
+    const udStickerTargets = orderTargets(getUDStickerTargets(cornerBuffer), order);
+    // T2C first-piece pool follows the user's corner buffer order, excluding
+    // only the active buffer. When "Only select later buffers" is on, the
+    // LAST piece is also hidden — picking it as first-piece would leave no
+    // valid second-piece. Mirrors the edge F2E behaviour.
+    const t2cPieceOrderAll = config.cornerBufferOrder.filter((p) => p !== cornerBuffer);
+    const t2cFirstPieces = config.t2cOnlyLaterBuffers
+        ? t2cPieceOrderAll.slice(0, -1)
+        : t2cPieceOrderAll;
     const oddTwistExtras = config.cornerTwistExtraCount % 2 === 1;
     const [twistAdvancedOpen, setTwistAdvancedOpen] = useLocalStorage('cornerTwistTargetsDisclosure', false);
+    const [targetsAdvancedOpen, setTargetsAdvancedOpen] = useLocalStorage('cornerTargetsParityDisclosure', false);
+    const [t2cAdvancedOpen, setT2cAdvancedOpen] = useLocalStorage('cornerT2cTargetsDisclosure', false);
 
     return (
         <div className="card">
@@ -103,6 +112,21 @@ export default function CornerScrambleCard() {
                     </select>
                 </div>
 
+                {type === 'Random' && (
+                    <div className="row">
+                        <span className="row-label">Parity</span>
+                        <Segmented
+                            value={config.cornerRandomParity}
+                            onChange={updateField('cornerRandomParity')}
+                            options={[
+                                { value: 'any', label: 'Any' },
+                                { value: 'even', label: 'Even' },
+                                { value: 'odd', label: 'Odd' },
+                            ]}
+                        />
+                    </div>
+                )}
+
                 {type === 'Targets' && (
                     <>
                         <div className="row">
@@ -114,12 +138,21 @@ export default function CornerScrambleCard() {
                             />
                         </div>
                         {config.cornerTargetCount % 2 === 1 && (
-                            <MultiselectCard
-                                title="Parity-target selection"
-                                allPieces={allTargets}
-                                value={config.parityTargets}
-                                onChange={updateField('parityTargets')}
-                            />
+                            <details
+                                className="disclosure"
+                                open={!!targetsAdvancedOpen}
+                                onToggle={(e) => setTargetsAdvancedOpen(e.currentTarget.open)}
+                            >
+                                <summary>Advanced target settings</summary>
+                                <div className="disclosure-body">
+                                    <MultiselectCard
+                                        title="Parity targets"
+                                        allPieces={allTargets}
+                                        value={config.parityTargets}
+                                        onChange={updateField('parityTargets')}
+                                    />
+                                </div>
+                            </details>
                         )}
                     </>
                 )}
@@ -222,7 +255,7 @@ export default function CornerScrambleCard() {
                                 />
                                 {oddTwistExtras && (
                                     <MultiselectCard
-                                        title="Parity-target selection"
+                                        title="Parity targets"
                                         allPieces={allTargets}
                                         value={config.parityTargets}
                                         onChange={updateField('parityTargets')}
@@ -230,61 +263,6 @@ export default function CornerScrambleCard() {
                                 )}
                             </div>
                         </details>
-                    </>
-                )}
-
-                {type === 'LTCT' && (
-                    <>
-                        <div className="row">
-                            <span className="row-label">Target count</span>
-                            <Segmented
-                                value={config.ltctCount}
-                                onChange={updateField('ltctCount')}
-                                options={[1, 3, 5, 7].map((n) => ({ value: n, label: String(n) }))}
-                            />
-                        </div>
-                        <div className="row">
-                            <span className="row-label">Selection mode</span>
-                            <Segmented
-                                value={config.ltctMode}
-                                onChange={updateField('ltctMode')}
-                                options={[
-                                    { value: 'pieces', label: 'Pieces' },
-                                    { value: 'stickers', label: 'Stickers' },
-                                ]}
-                            />
-                        </div>
-                        {config.ltctMode === 'stickers' ? (
-                            <>
-                                <MultiselectCard
-                                    title="Parity targets"
-                                    allPieces={allTargets}
-                                    value={config.ltctParityTargets}
-                                    onChange={updateField('ltctParityTargets')}
-                                />
-                                <MultiselectCard
-                                    title="Twist targets"
-                                    allPieces={twistTargets}
-                                    value={config.ltctTwistTargets}
-                                    onChange={updateField('ltctTwistTargets')}
-                                />
-                            </>
-                        ) : (
-                            <>
-                                <MultiselectCard
-                                    title="Parity pieces"
-                                    allPieces={udStickerTargets}
-                                    value={config.ltct2ParityTargets}
-                                    onChange={updateField('ltct2ParityTargets')}
-                                />
-                                <MultiselectCard
-                                    title="Twist pieces"
-                                    allPieces={udStickerTargets}
-                                    value={config.ltct2TwistTargets}
-                                    onChange={updateField('ltct2TwistTargets')}
-                                />
-                            </>
-                        )}
                     </>
                 )}
 
@@ -301,21 +279,38 @@ export default function CornerScrambleCard() {
                                 ]}
                             />
                         </div>
-                        <MultiselectCard
-                            title="First piece selection"
-                            allPieces={T2C_FIRST_PIECES}
-                            value={config.t2cFirstPieces}
-                            onChange={updateField('t2cFirstPieces')}
-                        />
-                        <label className="check">
-                            <input
-                                type="checkbox"
-                                checked={config.t2cOnlyLaterBuffers}
-                                onChange={(e) => updateField('t2cOnlyLaterBuffers')(e.target.checked)}
+                        <div className="row">
+                            <span className="row-label">Extra targets</span>
+                            <Segmented
+                                value={config.t2cExtraCount}
+                                onChange={updateField('t2cExtraCount')}
+                                options={[0, 2, 4, 6].map((n) => ({ value: n, label: String(n) }))}
                             />
-                            <span className="check-box"></span>
-                            <span>Only select later buffers</span>
-                        </label>
+                        </div>
+                        <details
+                            className="disclosure"
+                            open={!!t2cAdvancedOpen}
+                            onToggle={(e) => setT2cAdvancedOpen(e.currentTarget.open)}
+                        >
+                            <summary>Advanced target settings</summary>
+                            <div className="disclosure-body">
+                                <MultiselectCard
+                                    title="First piece selection"
+                                    allPieces={t2cFirstPieces}
+                                    value={config.t2cFirstPieces}
+                                    onChange={updateField('t2cFirstPieces')}
+                                />
+                                <label className="check">
+                                    <input
+                                        type="checkbox"
+                                        checked={config.t2cOnlyLaterBuffers}
+                                        onChange={(e) => updateField('t2cOnlyLaterBuffers')(e.target.checked)}
+                                    />
+                                    <span className="check-box"></span>
+                                    <span>Only select later buffers</span>
+                                </label>
+                            </div>
+                        </details>
                     </>
                 )}
             </div>

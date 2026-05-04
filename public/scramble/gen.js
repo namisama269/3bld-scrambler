@@ -199,159 +199,15 @@ function generateMainCycle(pieces, firstTarget, orientationNumber) {
     return generateCycleBase(pieces, firstTarget, orientationNumber, false);
 }
 
-// LTCT 2: piece-based selection (U/D stickers), random twist orientation from piece,
-// cycle starts with parity piece and ends back at same sticker (isolated cycle)
-// twist piece is completely excluded from the cycle
-function generateLTCT2(parityPieceIndex, twistPieceIndex, count = 7) {
-    // Randomly select a twist target from twistPiece (orientation 1 or 2, not U/D sticker)
-    const twistOri = Math.floor(Math.random() * 2) + 1;
-    const twist = CORNERS[twistPieceIndex][twistOri];
-
-    // Pick a random sticker from the parity piece as the first target
-    const firstTargetOri = Math.floor(Math.random() * 3);
-    const firstTarget = CORNERS[parityPieceIndex][firstTargetOri];
-
-    if (count < 7) {
-        return buildOpenChainLTCT(parityPieceIndex, twistPieceIndex, firstTarget, twist, count);
-    }
-
-    // Get remaining 6 pieces (exclude UFR index 0 and twistPiece)
-    let remainingPieces = [];
-    for (let i = 0; i < CORNERS.length; i++) {
-        if (i !== 0 && i !== twistPieceIndex) {
-            remainingPieces.push(i);
-        }
-    }
-
-    // Select random number of extra pieces (1-5)
-    const numExtraPieces = Math.floor(Math.random() * 5) + 1;
-
-    // Shuffle and take numExtraPieces (excluding parityPiece for now)
-    let otherPieces = remainingPieces.filter(i => i !== parityPieceIndex);
-    otherPieces = shuffleArray(otherPieces);
-    const selectedOtherPieces = otherPieces.slice(0, numExtraPieces);
-
-    // Create subset with parityPiece + selected other pieces (for the cycle)
-    const subsetPieces = [parityPieceIndex, ...selectedOtherPieces];
-
-    // Random orientation for cycle-break (0, 1, or 2)
-    const orientationNumber = Math.floor(Math.random() * 3);
-
-    // Generate isolated cycle starting with parity piece sticker
-    const targets = generateIsolatedCycle(subsetPieces, firstTarget, orientationNumber);
-
-    // Get remaining pieces (exclude UFR, twistPiece, and pieces used in cycle)
-    const usedPieceIndices = new Set([0, twistPieceIndex, ...subsetPieces]);
-    let finalRemainingPieces = [];
-    for (let i = 0; i < CORNERS.length; i++) {
-        if (!usedPieceIndices.has(i)) {
-            finalRemainingPieces.push(i);
-        }
-    }
-    // Generate random targets for remaining pieces
-    const remainingTargets = [];
-    for (let i of finalRemainingPieces) {
-        const ori = Math.floor(Math.random() * 3);
-        remainingTargets.push(CORNERS[i][ori]);
-    }
-
-    return { twist, targets, remainingTargets, leftoverPieces: [] };
-}
-
-// New: specific twist target, specific parity target, orientation 0 for cycle-break
-function generateLTCT(parityTarget, twistTarget, count = 7) {
-    const twist = twistTarget;
-    const twistPieceIndex = CORNERS.findIndex(piece => piece.includes(twistTarget));
-    const parityPieceIndex = CORNERS.findIndex(piece => piece.includes(parityTarget));
-
-    if (count < 7) {
-        return buildOpenChainLTCT(parityPieceIndex, twistPieceIndex, parityTarget, twist, count);
-    }
-
-    // Get remaining 6 pieces (exclude UFR index 0 and twistPiece)
-    let remainingPieces = [];
-    for (let i = 0; i < CORNERS.length; i++) {
-        if (i !== 0 && i !== twistPieceIndex) {
-            remainingPieces.push(i);
-        }
-    }
-
-    // Select random number of extra pieces (1-5)
-    const numExtraPieces = Math.floor(Math.random() * 5) + 1;
-
-    // Shuffle and take numExtraPieces (excluding parityPiece for now)
-    let otherPieces = remainingPieces.filter(i => i !== parityPieceIndex);
-    otherPieces = shuffleArray(otherPieces);
-    const selectedOtherPieces = otherPieces.slice(0, numExtraPieces);
-
-    // Create subset with parityPiece + selected other pieces
-    const subsetPieces = [parityPieceIndex, ...selectedOtherPieces];
-
-    // Use the specific parity target as firstTarget
-    const firstTarget = parityTarget;
-
-    // Orientation 0 for cycle-break (ends at same sticker orientation as started)
-    const orientationNumber = 0;
-
-    // Generate isolated cycle
-    const targets = generateIsolatedCycle(subsetPieces, firstTarget, orientationNumber);
-
-    // Get remaining pieces (exclude UFR, twistPiece, and pieces used in cycle)
-    const usedPieceIndices = new Set([0, twistPieceIndex, ...subsetPieces]);
-    let finalRemainingPieces = [];
-    for (let i = 0; i < CORNERS.length; i++) {
-        if (!usedPieceIndices.has(i)) {
-            finalRemainingPieces.push(i);
-        }
-    }
-    // Generate random targets for remaining pieces
-    const remainingTargets = [];
-    for (let i of finalRemainingPieces) {
-        const ori = Math.floor(Math.random() * 3);
-        remainingTargets.push(CORNERS[i][ori]);
-    }
-
-    return { twist, targets, remainingTargets, leftoverPieces: [] };
-}
-
-// Open-chain LTCT for counts 1/3/5: parity target + (count-1) random stickers on
-// distinct other pieces. Leftover pieces are untouched (no cycle-break, no remaining cycle).
-function buildOpenChainLTCT(parityPieceIndex, twistPieceIndex, firstTarget, twist, count) {
-    const numExtras = count - 1;
-
-    // Pool of pieces eligible to be "extras" (exclude buffer, twist piece, parity piece)
-    let pool = [];
-    for (let i = 0; i < CORNERS.length; i++) {
-        if (i !== 0 && i !== twistPieceIndex && i !== parityPieceIndex) {
-            pool.push(i);
-        }
-    }
-
-    pool = shuffleArray(pool);
-    const selectedExtras = pool.slice(0, numExtras);
-
-    const targets = [firstTarget];
-    for (const pieceIdx of selectedExtras) {
-        const ori = Math.floor(Math.random() * 3);
-        targets.push(CORNERS[pieceIdx][ori]);
-    }
-
-    const usedPieceIndices = new Set([0, twistPieceIndex, parityPieceIndex, ...selectedExtras]);
-    const leftoverPieces = [];
-    for (let i = 0; i < CORNERS.length; i++) {
-        if (!usedPieceIndices.has(i)) {
-            leftoverPieces.push(i);
-        }
-    }
-
-    return { twist, targets, remainingTargets: [], leftoverPieces };
-}
-
-// 2C: Two targets to start, then isolated cycle with remaining pieces
+// 2C: Two targets to start, then either a simple N-target cycle or a legacy
+// isolated-cycle + leftover split.
 // Inputs: firstPieceIndex - the piece to start from
 //         availableSecondPieceIndices - optional array of allowed second piece indices
 //         forceIdenticalThirdTarget - if true, thirdTarget = firstTarget (Floating 2C)
-function generate2C(firstPieceIndex, availableSecondPieceIndices, forceIdenticalThirdTarget = false) {
+//         extraCount - 0/2/4 (simple, single cycle, no split) or 6 (legacy
+//                      cycle-split: 3-5 cycle pieces + leftovers totaling 6
+//                      extras). Mirrors the F2E pattern in generate2E.
+function generate2C(firstPieceIndex, availableSecondPieceIndices, forceIdenticalThirdTarget = false, extraCount = 6) {
     // Start with all pieces except UFR (index 0)
     let pieces = [1, 2, 3, 4, 5, 6, 7];
 
@@ -381,23 +237,42 @@ function generate2C(firstPieceIndex, availableSecondPieceIndices, forceIdentical
     const secondTargetOri = Math.floor(Math.random() * 3);
     const secondTarget = CORNERS[secondPieceIndex][secondTargetOri];
 
-    // Now pieces has 5 remaining. Select 3-5 for the cycle.
-    const numCyclePieces = Math.floor(Math.random() * 3) + 3;
-    pieces = shuffleArray(pieces);
-    const cyclePieces = pieces.slice(0, numCyclePieces);
-    const leftoverPieces = pieces.slice(numCyclePieces);
+    // pieces now has 5 remaining (= MAX_EXTRAS for legacy split path).
+    // Normalize extraCount: must be even (odd flips parity); cap at 6.
+    let extras = Math.max(0, extraCount | 0);
+    if (extras > 6) extras = 6;
+    if (extras % 2 === 1) extras -= 1;
 
-    // Generate isolated cycle
-    const cycleFirstTargetOri = Math.floor(Math.random() * 3);
-    const cycleFirstTarget = CORNERS[cyclePieces[0]][cycleFirstTargetOri];
-    const orientationNumber = Math.floor(Math.random() * 3);
-    const cycleTargets = generateIsolatedCycle(cyclePieces, cycleFirstTarget, orientationNumber);
+    let cycleTargets = [];
+    let remainingTargets = [];
 
-    // Generate random targets for leftover pieces
-    const remainingTargets = [];
-    for (let i of leftoverPieces) {
-        const ori = Math.floor(Math.random() * 3);
-        remainingTargets.push(CORNERS[i][ori]);
+    if (extras === 0) {
+        // Just the 3-target setup, no cycle.
+    } else if (extras === 6) {
+        // Legacy cycle-split: pick 3-5 cycle pieces, leftovers get random
+        // single targets. Total cycle + remaining = 6 always.
+        const numCyclePieces = Math.floor(Math.random() * 3) + 3; // 3-5
+        pieces = shuffleArray(pieces);
+        const cyclePieces = pieces.slice(0, numCyclePieces);
+        const leftoverPieces = pieces.slice(numCyclePieces);
+
+        const cycleFirstTargetOri = Math.floor(Math.random() * 3);
+        const cycleFirstTarget = CORNERS[cyclePieces[0]][cycleFirstTargetOri];
+        const orientationNumber = Math.floor(Math.random() * 3);
+        cycleTargets = generateIsolatedCycle(cyclePieces, cycleFirstTarget, orientationNumber);
+
+        for (const i of leftoverPieces) {
+            const ori = Math.floor(Math.random() * 3);
+            remainingTargets.push(CORNERS[i][ori]);
+        }
+    } else {
+        // Simple path (extras 2 or 4): pick `extras` distinct pieces, one
+        // J-perm each with a random sticker. No cycle-break, no repeats.
+        const chosen = shuffleArray(pieces).slice(0, extras);
+        for (const idx of chosen) {
+            const ori = Math.floor(Math.random() * 3);
+            cycleTargets.push(CORNERS[idx][ori]);
+        }
     }
 
     return { firstTarget, secondTarget, thirdTarget, cycleTargets, remainingTargets };

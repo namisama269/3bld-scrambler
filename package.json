@@ -9,6 +9,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "gen-icons": "node scripts/gen-orientation-icons.mjs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "type": "module",
@@ -25,6 +26,8 @@
   "homepage": "https://github.com/namisama269/3bld-scrambler#readme",
   "devDependencies": {
     "@vitejs/plugin-react": "^4.7.0",
+    "jsdom": "^29.1.1",
+    "sr-visualizer": "^1.0.13",
     "vite": "^5.4.21"
   },
   "dependencies": {

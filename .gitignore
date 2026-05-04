@@ -2,7 +2,7 @@ algs/
 temp/
 node_modules/
 .claude/
-CLAUDE.md
+CLAUDE.local.md
 dist/
 __pycache__/
 *.pyc

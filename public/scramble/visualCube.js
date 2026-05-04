@@ -4,7 +4,8 @@ const YELLOW = "#F0FF00";
 const RED = "#E8120A";
 // const ORANGE = "#FF6500"; // fluoro bright orange
 const ORANGE = "#FB8C00";
-const GREEN = "#66FF33";
+// const GREEN = "#66FF33";
+const GREEN = "#00d800";
 const BLUE = "#2055FF";
 
 const CUBE_COLOR = BLACK;

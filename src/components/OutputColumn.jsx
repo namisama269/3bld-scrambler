@@ -111,33 +111,28 @@ export default function OutputColumn({ activeTab }) {
     };
 
     const onDebug = () => {
-        if (typeof window.getScrambleDebug === 'function') {
-            out.setDebugText(window.getScrambleDebug() || '');
-        }
-    };
-
-    const onDlin = () => {
-        if (typeof window.Tracer !== 'function' || !window.BUFFERS) {
-            out.setError('dlin tracer not loaded');
-            return;
-        }
+        const engineDebug = typeof window.getScrambleDebug === 'function'
+            ? (window.getScrambleDebug() || '')
+            : '';
+        // Append dlin tracing below the engine debug if a scramble exists
+        // and the tracer is available.
         const scramble = (out.scrambleText || '').trim();
-        if (!scramble) {
-            out.setError('Generate a scramble first');
-            return;
+        let dlinSection = '';
+        if (scramble && typeof window.Tracer === 'function' && window.BUFFERS) {
+            try {
+                const buffers = {
+                    corner: config.cornerBufferOrder,
+                    edge: config.edgeBufferOrder,
+                };
+                const tracer = new window.Tracer(buffers, 'both');
+                tracer.scrambleFromString(scramble);
+                tracer.traceCube();
+                dlinSection = '\n\nDLin tracing:\n' + formatTracingJson(tracer.tracing);
+            } catch (e) {
+                dlinSection = '\n\nDLin tracing error: ' + e.message;
+            }
         }
-        try {
-            const buffers = {
-                corner: config.cornerBufferOrder,
-                edge: config.edgeBufferOrder,
-            };
-            const tracer = new window.Tracer(buffers, 'both');
-            tracer.scrambleFromString(scramble);
-            tracer.traceCube();
-            out.setDebugText(formatTracingJson(tracer.tracing));
-        } catch (e) {
-            out.setError(e.message);
-        }
+        out.setDebugText(engineDebug + dlinSection);
     };
 
     // Spacebar shortcut on the Scrambler tab only.
@@ -182,7 +177,6 @@ export default function OutputColumn({ activeTab }) {
                     </div>
                     <span className="action-spacer" />
                     <button type="button" className="btn" onClick={onDebug}>Debug</button>
-                    <button type="button" className="btn" onClick={onDlin}>DLin Tracing</button>
                 </div>
             )}
 
@@ -228,7 +222,7 @@ export default function OutputColumn({ activeTab }) {
                 </div>
             ) : null}
 
-            <div className={`canvas-wrap ${out.scrambleList ? 'hidden' : ''}`}>
+            <div className={`canvas-wrap ${out.scrambleList || config.showCube === false ? 'hidden' : ''}`}>
                 <canvas
                     ref={canvasRef}
                     width="1200"

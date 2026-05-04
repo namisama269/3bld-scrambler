@@ -134,16 +134,11 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
-/* Logo slot — placeholder gradient until a square cube image is dropped in.
-   Drop in a real image later by replacing the .brand-logo span with
-   <img className="brand-logo" src="/logo.png" alt="" /> — same sizing applies. */
+/* Logo slot — square cube image (public/logo.png) sized to the topbar. */
 .brand-logo {
     display: inline-block;
     width: 32px; height: 32px;
-    border-radius: 6px;
-    background: linear-gradient(135deg, var(--accent-strong), var(--accent));
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05);
-    object-fit: cover;
+    object-fit: contain;
     flex-shrink: 0;
 }
 
@@ -240,6 +235,32 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
     background: linear-gradient(180deg, color-mix(in oklab, var(--text) 1.5%, transparent), transparent);
 }
 
+/* Clickable card header (collapsible cards). Looks identical to a normal
+   header but is a real <button> for keyboard / a11y; chevron rotates when
+   the body is hidden. */
+.card-header-toggle {
+    width: 100%;
+    appearance: none;
+    background: linear-gradient(180deg, color-mix(in oklab, var(--text) 1.5%, transparent), transparent);
+    border: none;
+    border-bottom: 1px solid var(--border);
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    justify-content: space-between;
+}
+.card-header-toggle[aria-expanded="false"] { border-bottom: none; }
+.card-toggle-caret {
+    width: 18px;
+    height: 18px;
+    color: var(--text);
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+}
+.card-toggle-caret.collapsed { transform: rotate(-90deg); }
+.card-header-toggle:hover .card-toggle-caret { color: var(--accent); }
+
 .card-title {
     font-size: 12px;
     font-weight: 600;
@@ -283,6 +304,23 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
     grid-template-columns: 132px 1fr;
     gap: 10px;
     align-items: start;
+}
+
+/* Color swatch + select pair for the BLD orientation control. The swatch is
+   a small box split horizontally — top color above, front color below — so
+   the user gets a visual cue alongside the textual "Yellow / Red". */
+.orientation-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.orientation-control .select { flex: 1; }
+
+.orientation-icon {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    object-fit: contain;
 }
 
 .row-label {
@@ -421,16 +459,17 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 3px 8px;
+    padding: 6px 10px;
     background-color: var(--bg-elev);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     font-family: var(--font-mono);
-    font-size: 11.5px;
+    font-size: 12.5px;
     color: var(--text);
     cursor: grab;
     user-select: none;
-    transition: border-color 0.12s, background 0.12s, opacity 0.12s, box-shadow 0.12s;
+    -webkit-touch-callout: none;
+    transition: border-color 0.12s, background 0.12s, color 0.12s, opacity 0.12s, box-shadow 0.12s;
 }
 .chip:hover { border-color: var(--border-strong); background-color: var(--surface); }
 .chip:active { cursor: grabbing; }
@@ -442,7 +481,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 /* Secondary buffer (e.g. parity edge) — same chrome as .chip.active but
-   in a purple tonal palette so it reads as "the other anchor". */
+   in a purple tonal palette so it reads as "the other anchor". Reused as
+   the drop-target highlight so the same hue means "this is the spot". */
 .chip.secondary {
     background-color: rgba(181, 102, 210, 0.16);
     border-color: #b566d2;
@@ -452,8 +492,26 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .chip-handle { color: var(--text-faint); line-height: 1; }
 
 .chip.dragging { opacity: 0.4; }
-.chip.drop-before { box-shadow: -2px 0 0 0 var(--accent); }
-.chip.drop-after { box-shadow: 2px 0 0 0 var(--accent); }
+
+/* Drop-target highlight: full secondary-purple wash on the chip, plus a
+   thick directional stripe on whichever edge the dragged item will insert
+   at. Way more obvious than the previous 2px hairline. */
+.chip.drop-before,
+.chip.drop-after {
+    background-color: rgba(181, 102, 210, 0.22);
+    border-color: #b566d2;
+    color: #d8a8eb;
+}
+.chip.drop-before { box-shadow: -4px 0 0 0 #b566d2; }
+.chip.drop-after  { box-shadow:  4px 0 0 0 #b566d2; }
+
+/* Touch devices: bump the chip and chip-row to give meaningful drag targets
+   on mobile. Native HTML5 drag is finicky on touch — bigger hit area at
+   least makes the gesture less prone to misfire. */
+@media (pointer: coarse) {
+    .chip { padding: 9px 14px; font-size: 14px; }
+    .chip-row { gap: 8px; padding: 8px; min-height: 48px; }
+}
 
 /* ---------- Checkbox grid ---------- */
 .checks {
@@ -506,6 +564,46 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 
 .check-mono span:not(.check-box) { font-family: var(--font-mono); }
 
+/* iOS-style toggle switch — same input semantics as .check (real checkbox
+   under the hood, just styled as a sliding rail + thumb). Use for binary
+   on/off preferences where a tick mark feels too form-like. */
+.toggle {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+.toggle input { display: none; }
+.toggle-switch {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    border-radius: 999px;
+    background-color: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    transition: background 0.15s, border-color 0.15s;
+}
+.toggle-switch::after {
+    content: '';
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background-color: var(--text-muted);
+    transition: transform 0.15s, background 0.15s;
+}
+.toggle input:checked + .toggle-switch {
+    background-color: var(--accent);
+    border-color: var(--accent);
+}
+.toggle input:checked + .toggle-switch::after {
+    transform: translateX(16px);
+    background-color: #fff;
+}
+.toggle input:disabled + .toggle-switch { opacity: 0.4; }
+
 /* ---------- Output column ---------- */
 .action-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .action-spacer { flex: 1 1 auto; }
@@ -541,9 +639,13 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 
 .scramble-pill.error { border-color: var(--danger); color: var(--danger); }
 .scramble-pill.success {
-    border-color: var(--success);
-    box-shadow: 0 0 0 1px color-mix(in oklab, var(--success) 30%, transparent);
+    background-color: var(--accent-soft);
+    border-color: var(--accent);
+    box-shadow:
+        0 0 0 1px var(--accent),
+        0 8px 28px -10px color-mix(in oklab, var(--accent) 55%, transparent);
 }
+.scramble-pill.success .label { color: var(--accent-strong); }
 
 .scramble-pill .label {
     display: block;
@@ -610,13 +712,17 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 .disclosure summary::before {
-    content: '▸';
-    color: var(--text-faint);
-    font-size: 9px;
+    content: '';
+    width: 11px;
+    height: 11px;
+    flex-shrink: 0;
+    background-color: var(--text);
+    clip-path: polygon(20% 0%, 100% 50%, 20% 100%);
     transition: transform 0.15s;
 }
 
 .disclosure[open] summary::before { transform: rotate(90deg); }
+.disclosure summary:hover::before { background-color: var(--accent); }
 .disclosure summary::-webkit-details-marker { display: none; }
 
 .disclosure-body {
