@@ -34,7 +34,7 @@ function enforceCornerBufferConstraint(order) {
     return ['UFR', ...rest];
 }
 
-function BufferOrderList({ value, onChange, validate, secondaryIdx }) {
+function BufferOrderList({ value, onChange, validate, highlightPieces }) {
     const [dragSrc, setDragSrc] = useState(null);
     const [dropHint, setDropHint] = useState({ piece: null, after: false });
 
@@ -52,7 +52,7 @@ function BufferOrderList({ value, onChange, validate, secondaryIdx }) {
     return (
         <div className="chip-row" role="list">
             {value.map((piece, idx) => {
-                const isActive = idx === 0 || idx === secondaryIdx;
+                const isActive = highlightPieces ? highlightPieces.includes(piece) : false;
                 const isDragging = dragSrc === piece;
                 const showHintBefore = dropHint.piece === piece && !dropHint.after;
                 const showHintAfter = dropHint.piece === piece && dropHint.after;
@@ -115,9 +115,7 @@ export default function BufferOrderCard({ activeTab, setActiveTab }) {
     const safeCornerOrder = enforceCornerBufferConstraint(
         reconcileOrder(config.cornerBufferOrder, DEFAULT_CORNER_BUFFER_ORDER),
     );
-    const safeEdgeOrder = enforceEdgeBufferConstraint(
-        reconcileOrder(config.edgeBufferOrder, DEFAULT_EDGE_BUFFER_ORDER),
-    );
+    const safeEdgeOrder = reconcileOrder(config.edgeBufferOrder, DEFAULT_EDGE_BUFFER_ORDER);
     const [collapsed, setCollapsed] = useLocalStorage('settingsCollapsed', false);
 
     return (
@@ -158,6 +156,7 @@ export default function BufferOrderCard({ activeTab, setActiveTab }) {
                         value={safeCornerOrder}
                         onChange={updateField('cornerBufferOrder')}
                         validate={(order) => order[0] === 'UFR'}
+                        highlightPieces={['UFR']}
                     />
                 </div>
                 <div className="row-stack-2col">
@@ -165,11 +164,7 @@ export default function BufferOrderCard({ activeTab, setActiveTab }) {
                     <BufferOrderList
                         value={safeEdgeOrder}
                         onChange={updateField('edgeBufferOrder')}
-                        secondaryIdx={1}
-                        validate={(order) => {
-                            const firstTwo = order.slice(0, 2);
-                            return firstTwo.includes('UF') && firstTwo.includes('UR');
-                        }}
+                        highlightPieces={['UF', 'UR']}
                     />
                 </div>
                 <div className="row">

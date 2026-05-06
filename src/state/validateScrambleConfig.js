@@ -105,10 +105,17 @@ export function validateScrambleConfig(config) {
     }
 
     if (config.edgeScrambleType === '2-Swap') {
+        // The 2-Swap engine path uses Jb-style algs (getEdgeParityAlg) that
+        // are only defined for buffer = UF or UR. With any other piece at
+        // position 0, no parity alg lookup succeeds and the scramble is
+        // generated with empty moves.
+        const activeBuffer = config.edgeBufferOrder[0];
+        if (activeBuffer !== 'UF' && activeBuffer !== 'UR') {
+            return `Edge 2-Swap requires UF or UR as the active edge buffer (position 0). Currently: ${activeBuffer}.`;
+        }
         // The first-piece pool is the user's edge buffer order minus the
         // active buffer, with the last entry hidden when "Only later buffers"
         // is on. At least one piece in the *visible* pool must be selected.
-        const activeBuffer = config.edgeBufferOrder[0];
         const f2eOrder = config.edgeBufferOrder.filter((p) => p !== activeBuffer);
         const visible = config.f2eOnlyLaterBuffers ? f2eOrder.slice(0, -1) : f2eOrder;
         const visibleSelected = (config.f2eFirstPieces || []).filter((p) => visible.includes(p));
