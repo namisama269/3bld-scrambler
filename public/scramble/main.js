@@ -93,9 +93,11 @@ function buildScrambleConfig(options) {
         floatingTargetCount: c.floatingTargetCount ?? 4,
         floatingBuffers: c.floatingBuffers || [],
         floatingDistribution: c.floatingDistribution || 'equal',
+        floatingAddFlip: !!c.floatingAddFlip,
         floatingCornerTargetCount: c.floatingCornerTargetCount ?? 4,
         floatingCornerBuffers: c.floatingCornerBuffers || [],
         floatingCornerDistribution: c.floatingCornerDistribution || 'equal',
+        floatingCornerAddTwist: !!c.floatingCornerAddTwist,
         cornerBufferOrder: c.cornerBufferOrder || ['UFR', 'UFL', 'UBR', 'UBL', 'DFR', 'DFL', 'DBR', 'DBL'],
         edgeBufferOrder: c.edgeBufferOrder || ['UF', 'UR', 'UB', 'UL', 'FR', 'FL', 'DF', 'DB', 'DR', 'DL'],
     };
@@ -685,9 +687,47 @@ function generateScramble(options = {}) {
 
         const floatingIdx = cornerOrder.indexOf(floatingBuffer);
         const laterPieceNames = cornerOrder.slice(floatingIdx + 1);
-        const cyclePool = laterPieceNames
+        let cyclePool = laterPieceNames
             .map(name => CORNERS.findIndex(c => c[0] === name))
             .filter(idx => idx >= 0 && cornerPieces.includes(idx));
+
+        // "Add twisted corner" toggle (single-buffer only): peel one piece
+        // off the cycle pool and twist it in place. To keep ΣCO ≡ 0 mod 3
+        // (so UFR doesn't end up auto-balanced into a stray twist), we
+        // also twist the floating buffer F with the OPPOSITE orientation:
+        // k_P + k_F ≡ 0 (mod 3) → k_F = 3 − k_P. Result: P and F each
+        // misoriented; main buffer UFR stays clean.
+        if (candidates.length === 1 && cfg.floatingCornerAddTwist && cyclePool.length >= 2) {
+            const twistPieceIdx = cyclePool[Math.floor(Math.random() * cyclePool.length)];
+            const k_P = Math.floor(Math.random() * 2) + 1; // 1 = CW, 2 = CCW
+            const k_F = 3 - k_P;
+
+            const twistTargetP = CORNERS[twistPieceIdx][k_P];
+            const udTargetP = CORNERS[twistPieceIdx][0];
+            const labelP = "Corner Floating add-twist (target=" + twistTargetP + ")";
+            _ctxLabel = labelP + " step 1/2";
+            cube.move(PARITY_UF_UR_UFR_X[udTargetP]);
+            _ctxLabel = labelP + " step 2/2";
+            cube.move(PARITY_UF_UR_UFR_X[twistTargetP]);
+            _ctxLabel = '';
+
+            // Companion twist on floating buffer F with opposite orientation.
+            const fPieceIdx = CORNERS.findIndex((c) => c[0] === floatingBuffer);
+            if (fPieceIdx >= 0) {
+                const twistTargetF = CORNERS[fPieceIdx][k_F];
+                const udTargetF = CORNERS[fPieceIdx][0];
+                const labelF = "Corner Floating add-twist companion F (target=" + twistTargetF + ")";
+                _ctxLabel = labelF + " step 1/2";
+                cube.move(PARITY_UF_UR_UFR_X[udTargetF]);
+                _ctxLabel = labelF + " step 2/2";
+                cube.move(PARITY_UF_UR_UFR_X[twistTargetF]);
+                _ctxLabel = '';
+            }
+
+            cyclePool = cyclePool.filter((idx) => idx !== twistPieceIdx);
+            log("Corner Floating add-twist: " + twistTargetP + " + " + floatingBuffer);
+            addDebugLine("Corner Floating add-twist: " + twistTargetP + " + " + floatingBuffer);
+        }
 
         let N;
         if (candidates.length > 1) {
@@ -1332,9 +1372,45 @@ function generateScramble(options = {}) {
         const floatingIdx = edgeOrder.indexOf(floatingBuffer);
 
         const laterPieceNames = edgeOrder.slice(floatingIdx + 1);
-        const cyclePool = laterPieceNames
+        let cyclePool = laterPieceNames
             .map(name => EDGES.findIndex(e => e[0] === name))
             .filter(idx => idx >= 0 && edgePieces.includes(idx));
+
+        // "Add flipped edge" toggle (single-buffer only): peel one piece off
+        // the cycle pool and flip it in place via two getEdgeParityAlg calls
+        // on its two stickers (EO defect, no perm change). Flipping just one
+        // piece breaks the cube's EO invariant (sum of flipped edges must
+        // be even), so we ALSO flip the floating buffer F — total flipped
+        // = 2 (P + F), which keeps the cube solvable. We deliberately use
+        // the floating buffer here, NOT the main edge buffer (UF/UR), so
+        // the parity edge stays clean.
+        if (candidates.length === 1 && cfg.floatingAddFlip && cyclePool.length >= 2) {
+            const flipPieceIdx = cyclePool[Math.floor(Math.random() * cyclePool.length)];
+            const piece = EDGES[flipPieceIdx];
+            const flipBaseLabel = "Edge Floating add-flip (sticker=" + piece[0] + ")";
+            _ctxLabel = flipBaseLabel + " step 1/2";
+            cube.move(getEdgeParityAlg(edgeBuffer, piece[0]));
+            _ctxLabel = flipBaseLabel + " step 2/2";
+            cube.move(getEdgeParityAlg(edgeBuffer, piece[1]));
+            _ctxLabel = '';
+
+            // Companion flip on the floating buffer F to keep EO even.
+            const fPieceIdx = EDGES.findIndex((e) => e[0] === floatingBuffer);
+            if (fPieceIdx >= 0) {
+                const fPiece = EDGES[fPieceIdx];
+                const fLabel = "Edge Floating add-flip companion F (sticker=" + fPiece[0] + ")";
+                _ctxLabel = fLabel + " step 1/2";
+                cube.move(getEdgeParityAlg(edgeBuffer, fPiece[0]));
+                _ctxLabel = fLabel + " step 2/2";
+                cube.move(getEdgeParityAlg(edgeBuffer, fPiece[1]));
+                _ctxLabel = '';
+            }
+
+            cyclePool = cyclePool.filter((idx) => idx !== flipPieceIdx);
+            log("Edge Floating add-flip: " + piece[0] + " + " + floatingBuffer);
+            addDebugLine("Edge Floating add-flip: " + piece[0] + " + " + floatingBuffer);
+        }
+
         // Multi-select: target count is fixed per pick at buffer-trainer's
         // default — evenize(laterCount) — so each scramble has a sensible
         // size for whichever buffer was chosen.
@@ -1580,16 +1656,22 @@ function generateScramble(options = {}) {
         }
     }
 
-    // Floating double-odd parity correction: when BOTH sides ran a Floating
-    // chain whose length was odd, each chain leaked one stray Jb-half. The
-    // two leftovers together form exactly one Jb perm — apply one Jb here
-    // to cancel them and leave the intended cycles clean on each side.
-    if (cornerFloatingOddParity && edgeFloatingOddParity) {
-        _ctxLabel = "Floating double-odd parity correction";
+    // Floating odd-edge parity correction: an odd-length edge Floating chain
+    // leaks a stray UFR↔UBR swap onto corners (because each Jb in the chain
+    // also touches UFR↔UBR, and odd-many of them don't cancel). The user's
+    // preferred convention: that leftover should land on the edge buffer pair
+    // (UF↔UR), not on corners. Append a Jb here — its UFR↔UBR cancels the
+    // chain's stray, and its UF↔UR becomes the new visible leftover on edges.
+    //
+    // This same Jb also doubles as the both-Floating-odd correction: when the
+    // corner Floating chain is also odd, it leaked a UF↔UR swap onto edges,
+    // which the appended Jb's UF↔UR cancels — both sides come out clean.
+    if (edgeFloatingOddParity) {
+        _ctxLabel = "Floating odd-edge parity correction";
         cube.move(Jb_PERM);
         _ctxLabel = '';
-        log("Floating double-odd parity correction: applied Jb perm");
-        addDebugLine("Floating double-odd parity correction: applied Jb perm");
+        log("Floating odd-edge parity correction: applied Jb perm");
+        addDebugLine("Floating odd-edge parity correction: applied Jb perm");
     }
 
     // get the scramble and do in correct orientation

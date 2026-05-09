@@ -1,80 +1,79 @@
 /* ==========================================================================
-   3BLD Scrambler — Things-flavoured palette + fonts.
-   Inspired by colineckert/obsidian-things (which itself draws from Things 3
-   on macOS). Backup of the previous Linear-inspired tokens lives in
-   src/styles.legacy.css — swap the import in main.jsx to fall back.
+   3BLD Scrambler — Linear/macOS-leaning design system.
+   Tokens live as CSS custom properties on :root and [data-theme="dark"]; the
+   default :root values are the light theme.
    ========================================================================== */
 
-/* Standard markdown-style font stacks — same as GitHub's markdown CSS.
-   System-first so the page picks up whatever each OS calls "default". */
+@import url('https://rsms.me/inter/inter.css');
+
+/* Color tokens lifted directly from Linear's production CSS
+   (static.linear.app/web/_next/static/css/...): --color-bg-primary etc.
+   The mapping below uses Linear's exact hex values for parity. */
 
 :root {
-    /* Light mode — Things' "base" palette (#ffffff → #222222 with subtle
-       greyish layers between). Dividers on #ebedf0; text on #222222. */
-    --bg: #ffffff;
+    /* Light mode = Linear's light scheme */
+    --bg: #ffffff;                          /* --color-bg-primary */
     --bg-elev: #ffffff;
-    --surface: #f6f7f8;                     /* base-10 (subtle code-block bg) */
-    --surface-2: #f0f0f0;                   /* base-25 */
-    --surface-3: #ebedf0;                   /* base-30 (dividers) */
-    --bg-tint: #f6f7f8;
-    --border: #ebedf0;                      /* base-30 */
-    --border-strong: #d4d4d4;               /* base-35 */
-    --border-loud: #bdbdbd;                 /* base-40 */
-    --text: #222222;                        /* base-100 */
-    --text-strong-muted: #5a5a5a;           /* base-70 */
-    --text-muted: #707070;                  /* base-60 */
-    --text-faint: #ababab;                  /* base-50 */
-    --accent: #3d74f6;                      /* atom-blue (Things' friendly blue) */
-    --accent-soft: rgba(61, 116, 246, 0.10);
-    --accent-strong: #2a5fde;
-    --danger: #e4374b;                      /* color-red */
-    --warn: #d96c00;                        /* color-orange */
-    --success: #0cb54f;                     /* color-green */
+    --surface: #f9f8f9;                     /* --color-bg-secondary */
+    --surface-2: #f4f2f4;                   /* --color-bg-tertiary */
+    --surface-3: #eeedef;                   /* --color-bg-quaternary */
+    --bg-tint: #f4f4f5;                     /* --color-bg-tint */
+    --border: #e9e8ea;                      /* --color-border-primary */
+    --border-strong: #e4e2e4;               /* --color-border-secondary */
+    --border-loud: #dcdbdd;                 /* --color-border-tertiary */
+    --text: #282a30;                        /* --color-text-primary */
+    --text-strong-muted: #3c4149;           /* --color-text-secondary */
+    --text-muted: #6f6e77;                  /* --color-fg-tertiary */
+    --text-faint: #62666d;                  /* --color-fg-quaternary */
+    --accent: #5e6ad2;                      /* --color-indigo */
+    --accent-soft: rgba(94, 106, 210, 0.10);
+    --accent-strong: #4f5bb6;
+    --danger: #eb5757;                      /* --color-red */
+    --warn: #fc7840;                        /* --color-orange */
+    --success: #27a644;                     /* --color-green */
 
     --radius-sm: 4px;
-    --radius: 8px;                          /* Things radius-m */
-    --radius-lg: 10px;                      /* Things radius-l */
+    --radius: 6px;
+    --radius-lg: 10px;
     --radius-pill: 9999px;
 
-    --shadow-1: 0px 1px 2px rgba(0, 0, 0, 0.028), 0px 3.4px 6.7px rgba(0, 0, 0, 0.042);
-    --shadow-overlay: 0px 1.8px 7.3px rgba(0, 0, 0, 0.071), 0px 6.3px 24.7px rgba(0, 0, 0, 0.112), 0px 30px 90px rgba(0, 0, 0, 0.2);
+    --shadow-1: 0 1px 2px rgba(15, 17, 22, 0.05);
+    --shadow-overlay: 0 24px 48px rgba(15, 17, 22, 0.18);
 
-    /* GitHub-markdown stack: native sans on each OS, native mono for code.
-       No web-font downloads — page renders in whatever the OS treats as
-       "default", which is what most markdown viewers do. */
-    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans',
-        Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
-    --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+    --font-sans: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont,
+        'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', Menlo, Monaco, Consolas,
         'Liberation Mono', monospace;
 }
 
 [data-theme="dark"] {
-    /* Dark mode — Things' atom-style dark with #1c2127 main, #282c34
-       elevated, and a softer accent blue. */
-    --bg: #1c2127;                          /* base-00 main editor bg */
-    --bg-elev: #282c34;                     /* base-10 panel/code blocks */
-    --surface: #181c20;                     /* base-20 (deepest layer) */
-    --surface-2: #2c313c;                   /* base-25 */
-    --surface-3: #35393e;                   /* base-30 */
-    --bg-tint: #282c34;
-    --border: rgba(255, 255, 255, 0.08);
-    --border-strong: rgba(255, 255, 255, 0.14);
-    --border-loud: rgba(255, 255, 255, 0.2);
-    --text: #dadada;                        /* base-100 */
-    --text-strong-muted: #bababa;           /* base-70 */
-    --text-muted: #999999;                  /* base-60 */
-    --text-faint: #666666;                  /* base-50 */
-    --accent: #3d74f6;                      /* same blue as light mode */
-    --accent-soft: rgba(61, 116, 246, 0.16);
-    --accent-strong: #2a5fde;
-    --danger: #fb464c;                      /* color-red dark */
-    --warn: #e9973f;                        /* color-orange dark */
-    --success: #44cf6e;                     /* color-green dark */
+    --bg: #08090a;                          /* --color-bg-primary */
+    --bg-elev: #0f1011;                     /* --color-bg-panel */
+    --surface: #141516;                     /* --color-bg-tint */
+    --surface-2: #1c1c1f;                   /* --color-bg-secondary */
+    --surface-3: #232326;                   /* --color-bg-tertiary */
+    --bg-tint: #141516;
+    --border: rgba(255, 255, 255, 0.08);    /* --color-border-primary */
+    --border-strong: rgba(255, 255, 255, 0.12); /* --color-border-secondary */
+    --border-loud: rgba(255, 255, 255, 0.15);   /* --color-border-tertiary */
+    --text: #f7f8f8;                        /* --color-text-primary */
+    --text-strong-muted: #d0d6e0;           /* --color-text-secondary */
+    --text-muted: #8a8f98;                  /* --color-fg-tertiary */
+    --text-faint: #62666d;                  /* --color-fg-quaternary */
+    --accent: #5e6ad2;                      /* --color-indigo */
+    --accent-soft: rgba(94, 106, 210, 0.16);
+    --accent-strong: #7681e8;
+    --danger: #eb5757;                      /* --color-red */
+    --warn: #fc7840;                        /* --color-orange */
+    --success: #27a644;                     /* --color-green */
 
-    --shadow-1: 0px 1px 2px rgba(0, 0, 0, 0.121), 0px 3.4px 6.7px rgba(0, 0, 0, 0.179);
-    --shadow-overlay: 0px 1.8px 7.3px rgba(0, 0, 0, 0.25), 0px 6.3px 24.7px rgba(0, 0, 0, 0.3), 0px 30px 90px rgba(0, 0, 0, 0.4);
+    --shadow-1: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-overlay: 0 24px 48px rgba(0, 0, 0, 0.5);
 }
 
+@supports (font-variation-settings: normal) {
+    :root { --font-sans: 'Inter var', 'Inter Variable', system-ui, sans-serif; }
+}
 
 * { box-sizing: border-box; }
 

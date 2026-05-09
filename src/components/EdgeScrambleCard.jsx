@@ -154,9 +154,14 @@ export default function EdgeScrambleCard() {
                     const showTargetCount = selected.length === 1;
                     const showDistribution = selected.length > 1;
                     const onlyIdx = showTargetCount ? config.edgeBufferOrder.indexOf(selected[0]) : -1;
-                    const maxN = showTargetCount
+                    const baseMaxN = showTargetCount
                         ? Math.max(1, config.edgeBufferOrder.length - 1 - onlyIdx)
                         : 1;
+                    // "Add flipped edge" steals one piece from the cycle
+                    // pool, so the available target count drops by 1.
+                    const maxN = (showTargetCount && config.floatingAddFlip)
+                        ? Math.max(1, baseMaxN - 1)
+                        : baseMaxN;
                     const N = Math.min(config.floatingTargetCount, maxN);
                     return (
                         <>
@@ -213,6 +218,19 @@ export default function EdgeScrambleCard() {
                                         onChange={updateField('floatingTargetCount')}
                                         options={Array.from({ length: maxN }, (_, i) => ({ value: i + 1, label: String(i + 1) }))}
                                     />
+                                </div>
+                            )}
+                            {showTargetCount && (
+                                <div className="row">
+                                    <span className="row-label">Add flipped edge</span>
+                                    <label className="toggle">
+                                        <input
+                                            type="checkbox"
+                                            checked={!!config.floatingAddFlip}
+                                            onChange={(e) => updateField('floatingAddFlip')(e.target.checked)}
+                                        />
+                                        <span className="toggle-switch"></span>
+                                    </label>
                                 </div>
                             )}
                         </>
