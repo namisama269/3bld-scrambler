@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import {
     DEFAULT_CORNER_BUFFER_ORDER,
     DEFAULT_EDGE_BUFFER_ORDER,
+    DEFAULT_STICKER_COLORS,
     F2E_FIRST_PIECES,
     getTargetsExcludingBuffer,
     getUDStickerTargets,
@@ -15,6 +16,7 @@ const initialConfig = {
     holdingOrientation: 'wg',
     targetOrder: 'piece',
     showCube: true,
+    stickerColors: { ...DEFAULT_STICKER_COLORS },
     cornerScrambleType: 'Solved',
     edgeScrambleType: 'Solved',
     cornerRandomParity: 'any',

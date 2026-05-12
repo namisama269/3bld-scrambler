@@ -1,4 +1,5 @@
 import { useLocalStorage } from '../hooks/useLocalStorage.js';
+import { useScrambleConfig } from '../state/ScrambleConfigContext.jsx';
 import ScramblerTab from './ScramblerTab.jsx';
 import BldHelperTab from './BldHelperTab.jsx';
 import OutputColumn from './OutputColumn.jsx';
@@ -25,12 +26,21 @@ const ICONS = {
 
 export default function AppShell({ themeMode, onThemeToggle }) {
     const [activeTab, setActiveTab] = useLocalStorage('activeSettingsTab', 'scrambler');
+    const { config } = useScrambleConfig();
+    // Brand icon mirrors the user's selected BLD holding orientation. The
+    // pre-generated logo-variant SVGs under public/orientations/logo/ are
+    // rendered through the same algorithm-based pipeline as public/logo.png:
+    // they apply the W-pattern scramble alg on top of the orientation
+    // rotation (with an `x2` prefix to compensate for the logo colorScheme's
+    // yb base — see scripts/gen-orientation-icons.mjs). The favicon
+    // (logo.png in index.html) stays static.
+    const brandIcon = `./orientations/logo/${config.holdingOrientation || 'wg'}.svg`;
 
     return (
         <>
             <div className="topbar">
                 <span className="brand">
-                    <img className="brand-logo" src="./logo.png" alt="" aria-hidden="true" />
+                    <img className="brand-logo" src={brandIcon} alt="" aria-hidden="true" />
                     3BLD Scrambler
                 </span>
 

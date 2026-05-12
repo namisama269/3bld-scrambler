@@ -4,9 +4,74 @@ import { useLocalStorage } from '../hooks/useLocalStorage.js';
 import {
     DEFAULT_CORNER_BUFFER_ORDER,
     DEFAULT_EDGE_BUFFER_ORDER,
+    DEFAULT_STICKER_COLORS,
     ORIENTATION_OPTIONS,
+    faceAtPositionFor,
     orientationLabel,
 } from '../constants.js';
+
+// Display order for the color picker row. URFBLD = the canonical face ordering
+// used in the cube facelet string (see public/scramble/main.js cubeString).
+const STICKER_FACE_ORDER = ['U', 'R', 'F', 'B', 'L', 'D'];
+
+// Flip to true to surface the color-scheme editor (per-face picker + Random +
+// Reset) in the Settings card. Hidden by default — all the underlying state,
+// engine plumbing (setVisualCubeStickerColors), orientation-aware label
+// mapping (faceAtPositionFor), random-palette generator, and CSS remain in
+// place so the feature can be reused in other projects or re-enabled here
+// without rewiring anything. Just toggle this flag.
+const SHOW_COLOR_SCHEME_EDITOR = false;
+
+// HSL → 6-digit hex. Implementation of the standard HSL→RGB conversion using
+// the simplified k(n) = (n + h/30) mod 12 formulation.
+function hslToHex(h, s, l) {
+    const sN = s / 100;
+    const lN = l / 100;
+    const k = (n) => (n + h / 30) % 12;
+    const a = sN * Math.min(lN, 1 - lN);
+    const channel = (n) => {
+        const x = lN - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
+        return Math.round(255 * x).toString(16).padStart(2, '0');
+    };
+    return `#${channel(0)}${channel(8)}${channel(4)}`;
+}
+
+// Random palette of 6 visually-distinct colors with cube-like lightness
+// variety. Hues are 6 values spaced 60° apart with a random rotation (every
+// hue reachable per face; pairs always ≥60° apart). Lightness/saturation are
+// stratified across SIX profiles — one near-white, one bright-light, and
+// four medium — to mirror the standard cube's white + yellow + 4-colored
+// distribution. Without this stratification every palette ends up feeling
+// like "six medium-tone colors", which is hard for cubers used to seeing one
+// light face anchor the orientation.
+const PALETTE_PROFILES = [
+    { sMin: 5,  sMax: 30,  lMin: 85, lMax: 95 }, // near-white (low-saturation tint)
+    { sMin: 75, sMax: 100, lMin: 70, lMax: 85 }, // bright-light (yellow-ish anchor)
+    { sMin: 65, sMax: 95,  lMin: 48, lMax: 62 },
+    { sMin: 65, sMax: 95,  lMin: 45, lMax: 60 },
+    { sMin: 65, sMax: 95,  lMin: 40, lMax: 55 },
+    { sMin: 65, sMax: 95,  lMin: 35, lMax: 50 },
+];
+
+function shuffleInPlace(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+function randomDistinctColors() {
+    const offset = Math.random() * 360;
+    const hues = shuffleInPlace([0, 60, 120, 180, 240, 300].map((h) => (h + offset) % 360));
+    const profiles = shuffleInPlace([...PALETTE_PROFILES]);
+    return hues.map((h, i) => {
+        const p = profiles[i];
+        const s = p.sMin + Math.random() * (p.sMax - p.sMin);
+        const l = p.lMin + Math.random() * (p.lMax - p.lMin);
+        return hslToHex(h, s, l);
+    });
+}
 
 function reconcileOrder(saved, defaults) {
     if (!Array.isArray(saved)) return [...defaults];
@@ -212,6 +277,55 @@ export default function BufferOrderCard({ activeTab, setActiveTab }) {
                         <span className="toggle-switch"></span>
                     </label>
                 </div>
+                {SHOW_COLOR_SCHEME_EDITOR && <div className="row-stack-2col">
+                    <div className="row-label">Color scheme</div>
+                    <div className="color-scheme-row">
+                        {(() => {
+                            const perm = faceAtPositionFor(config.holdingOrientation || 'wg');
+                            return STICKER_FACE_ORDER.map((position) => {
+                                const originalFace = perm[position];
+                                const current = (config.stickerColors && config.stickerColors[originalFace])
+                                    || DEFAULT_STICKER_COLORS[originalFace];
+                                return (
+                                    <label key={position} className="color-swatch">
+                                        <span className="color-swatch-label">{position}</span>
+                                        <input
+                                            type="color"
+                                            value={current}
+                                            onChange={(e) => updateField('stickerColors')({
+                                                ...DEFAULT_STICKER_COLORS,
+                                                ...config.stickerColors,
+                                                [originalFace]: e.target.value,
+                                            })}
+                                            aria-label={`${position} face color`}
+                                        />
+                                    </label>
+                                );
+                            });
+                        })()}
+                        <div className="color-scheme-actions">
+                            <button
+                                type="button"
+                                className="btn btn-sm"
+                                onClick={() => {
+                                    const [u, r, f, b, l, d] = randomDistinctColors();
+                                    updateField('stickerColors')({ U: u, R: r, F: f, B: b, L: l, D: d });
+                                }}
+                                title="Randomize all 6 face colors (just-for-fun)"
+                            >
+                                Random
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-sm"
+                                onClick={() => updateField('stickerColors')({ ...DEFAULT_STICKER_COLORS })}
+                                title="Restore the built-in default colors"
+                            >
+                                Reset
+                            </button>
+                        </div>
+                    </div>
+                </div>}
             </div>}
         </div>
     );

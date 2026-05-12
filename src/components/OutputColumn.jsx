@@ -56,6 +56,15 @@ export default function OutputColumn({ activeTab }) {
         }
     }, [config.holdingOrientation]);
 
+    // Push the user's custom face-color scheme into the canvas renderer
+    // whenever it changes. The engine's stickerColors map is mutable and the
+    // setter repaints, so this also covers the initial mount once init runs.
+    useEffect(() => {
+        if (typeof window.setVisualCubeStickerColors === 'function') {
+            window.setVisualCubeStickerColors(config.stickerColors);
+        }
+    }, [config.stickerColors]);
+
     const onGenerate = () => {
         out.clear();
         const validationError = validateScrambleConfig(config);

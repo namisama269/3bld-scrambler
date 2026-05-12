@@ -36,6 +36,19 @@ window.setHoldingOrientation = function (key) {
     }
 };
 
+// Override the per-face sticker colors on the live VisualCube instance and
+// repaint. `colors` is a partial map keyed by face letter (U/R/F/L/B/D) →
+// hex string. Unknown keys (z/x/r — borders + greys) are preserved.
+window.setVisualCubeStickerColors = function (colors) {
+    if (!vc || !ctx) return;
+    if (colors && typeof colors === 'object') {
+        for (const k of Object.keys(colors)) {
+            if (k in vc.stickerColors) vc.stickerColors[k] = colors[k];
+        }
+    }
+    vc.drawCube(ctx);
+};
+
 // Paint a 54-char URFDLB facelet string directly on the shared canvas.
 // Used by the BLD Helper tab, which builds its own scramble via cubeutil
 // and just needs to render the resulting cube state.
@@ -129,6 +142,94 @@ function handle462Parity(cornerTarget, edgeTarget, edgeBuffer) {
     cube.move(getEdgeParityAlg(edgeBuffer, edgeTarget));
     cube.move(Jb_PERM);
     cube.move(PARITY_UF_UR_UFR_X[cornerTarget]);
+}
+
+// Brute-force pick a valid (twistedPieces, paritySticker) combination for the
+// corner Twist branch. The naive approach — pick twists greedily, then filter
+// cfg.parityTargets to whatever pieces survived — silently drops the parity
+// adjust whenever every user-selected parity sticker happens to live on a
+// piece that got twisted, leaving the cube with a stray odd-length Jb chain.
+//
+// Mirrors the enumeration the Flips branch does for (flipPieces,
+// parityTargetSticker). Iterates every C(eligibleTwistPieces, N) combination,
+// keeps only those whose leftover pool can still host an eligible parity
+// sticker (when extras is odd) and the rest of the extras cycle, then picks
+// uniformly. Orientations are decided after the combo since direction
+// (same/mixed) doesn't affect validity. Returns null if no valid combo
+// exists — caller should surface the error.
+function pickValidTwistCombo(availablePieces, cfg, N, extraCount, direction) {
+    const twistTargetSet = new Set(cfg.cornerTwistTargets);
+    const eligibleTwistPieces = twistTargetSet.size > 0
+        ? availablePieces.filter((i) => twistTargetSet.has(CORNERS[i][0]))
+        : availablePieces.slice();
+    if (N > eligibleTwistPieces.length) return null;
+
+    const oddExtras = extraCount % 2 === 1;
+    const eligibleParityStickers = oddExtras
+        ? ((cfg.parityTargets && cfg.parityTargets.length > 0)
+            ? [...cfg.parityTargets]
+            : availablePieces.flatMap((i) => CORNERS[i]))
+        : null;
+
+    const pieceCombos = [];
+    (function rec(start, combo) {
+        if (combo.length === N) { pieceCombos.push(combo.slice()); return; }
+        for (let i = start; i < eligibleTwistPieces.length; i++) {
+            combo.push(eligibleTwistPieces[i]);
+            rec(i + 1, combo);
+            combo.pop();
+        }
+    })(0, []);
+
+    const validCombos = [];
+    for (const tp of pieceCombos) {
+        const tpSet = new Set(tp);
+        const remaining = availablePieces.filter((i) => !tpSet.has(i));
+        const remainingCount = remaining.length;
+
+        if (oddExtras) {
+            for (const stk of eligibleParityStickers) {
+                const parityIdx = CORNERS.findIndex((p) => p.includes(stk));
+                if (parityIdx < 0 || tpSet.has(parityIdx) || !remaining.includes(parityIdx)) continue;
+                const restNeeded = extraCount - 1;
+                const afterParityCount = remainingCount - 1;
+                // generateTwistExtras supports up to (n + 1) targets via the
+                // 2-cycle split, where n = afterParityCount.
+                if (restNeeded <= afterParityCount + 1) {
+                    validCombos.push({ twistedPieces: tp, parityPieceIdx: parityIdx, paritySticker: stk });
+                }
+            }
+        } else {
+            if (extraCount <= remainingCount + 1) {
+                validCombos.push({ twistedPieces: tp, parityPieceIdx: null, paritySticker: null });
+            }
+        }
+    }
+
+    if (validCombos.length === 0) return null;
+    const chosen = validCombos[Math.floor(Math.random() * validCombos.length)];
+
+    const oris = new Array(N);
+    if (N === 1 || direction === 'same') {
+        const fixedOri = Math.floor(Math.random() * 2) + 1;
+        for (let i = 0; i < N; i++) oris[i] = fixedOri;
+    } else {
+        const indices = shuffleArray(Array.from({ length: N }, (_, i) => i));
+        const cwIdx = indices[0];
+        const ccwIdx = indices[1];
+        for (let i = 0; i < N; i++) {
+            if (i === cwIdx) oris[i] = 1;
+            else if (i === ccwIdx) oris[i] = 2;
+            else oris[i] = Math.floor(Math.random() * 2) + 1;
+        }
+    }
+
+    return {
+        twistedPieces: chosen.twistedPieces,
+        oris,
+        parityPieceIdx: chosen.parityPieceIdx,
+        paritySticker: chosen.paritySticker,
+    };
 }
 
 // generate scramble
@@ -309,27 +410,14 @@ function generateScramble(options = {}) {
         if (cornerScrambleType === 'Twist') {
             const N = Math.max(1, Math.min(7, cfg.cornerTwistCount ?? 2));
             const direction = cfg.cornerTwistDirection || 'mixed';
-            const twistTargetSet = new Set(cfg.cornerTwistTargets);
-            const eligibleCornerPieces = twistTargetSet.size > 0
-                ? cornerPieces.filter((i) => twistTargetSet.has(CORNERS[i][0]))
-                : cornerPieces;
-            const shuffledCornerPieces = shuffleArray([...eligibleCornerPieces]);
-            const twistedPieces = shuffledCornerPieces.slice(0, N);
-
-            const oris = new Array(N);
-            if (N === 1 || direction === 'same') {
-                const fixedOri = Math.floor(Math.random() * 2) + 1;
-                for (let i = 0; i < N; i++) oris[i] = fixedOri;
-            } else {
-                const indices = shuffleArray(Array.from({ length: N }, (_, i) => i));
-                const cwIdx = indices[0];
-                const ccwIdx = indices[1];
-                for (let i = 0; i < N; i++) {
-                    if (i === cwIdx) oris[i] = 1;
-                    else if (i === ccwIdx) oris[i] = 2;
-                    else oris[i] = Math.floor(Math.random() * 2) + 1;
-                }
+            const extraCount = Math.max(0, Math.min(7 - N, cfg.cornerTwistExtraCount ?? 0));
+            const combo = pickValidTwistCombo(cornerPieces, cfg, N, extraCount, direction);
+            if (!combo) {
+                alert("Error: No valid Twist combination possible with current selections. " +
+                      "Adjust twist targets, parity targets, or counts.");
+                return;
             }
+            const { twistedPieces, oris, parityPieceIdx, paritySticker } = combo;
             const twistTargets = twistedPieces.map((idx, i) => CORNERS[idx][oris[i]]);
 
             twistTargets.forEach((twist, i) => {
@@ -349,7 +437,7 @@ function generateScramble(options = {}) {
 
             cornerPieces = cornerPieces.filter((idx) => !twistedPieces.includes(idx));
             pre462TwistCODone = true;
-            pre462TwistContext = { twistedPieces, twistTargets, N, dirLabel };
+            pre462TwistContext = { twistedPieces, twistTargets, N, dirLabel, parityPieceIdx, paritySticker };
         }
 
         // Stage B: edge EO flips (Flips branch's EO part only). Pre-pick
@@ -457,26 +545,15 @@ function generateScramble(options = {}) {
             // Suppress the Parity branch — leave cornerPieces for the comms loop.
             cornerScrambleType = '__462_handled__';
         } else if (cornerScrambleType === 'Twist') {
-            // Pick X_c from cfg.parityTargets if any are eligible (their piece
-            // is still in cornerPieces — i.e. non-buffer, non-twisted). Falls
-            // back to a random non-twisted corner sticker if the user's
-            // selection has no eligible pieces.
+            // The brute-force in Stage A already picked a parity sticker that
+            // lands on a non-twisted piece (the 462 path is only entered when
+            // extras is odd, so paritySticker is guaranteed non-null). Just
+            // consume it here.
             if (cornerPieces.length === 0) {
                 throw new Error('462: no remaining corner piece for parity target');
             }
-            const eligible = (cfg.parityTargets || []).filter((t) => {
-                const idx = CORNERS.findIndex((p) => p.includes(t));
-                return idx >= 0 && cornerPieces.includes(idx);
-            });
-            if (eligible.length > 0) {
-                pre462X_c = eligible[Math.floor(Math.random() * eligible.length)];
-            } else {
-                const i = Math.floor(Math.random() * cornerPieces.length);
-                const piece = CORNERS[cornerPieces[i]];
-                pre462X_c = piece[Math.floor(Math.random() * piece.length)];
-            }
-            const pieceIdx = CORNERS.findIndex((p) => p.includes(pre462X_c));
-            cornerPieces = cornerPieces.filter((idx) => idx !== pieceIdx);
+            pre462X_c = pre462TwistContext.paritySticker;
+            cornerPieces = cornerPieces.filter((idx) => idx !== pre462TwistContext.parityPieceIdx);
             cfg.cornerTwistExtraCount = (cfg.cornerTwistExtraCount ?? 0) - 1;
         }
 
@@ -775,40 +852,24 @@ function generateScramble(options = {}) {
         const extraCount = Math.max(0, Math.min(7 - N, cfg.cornerTwistExtraCount ?? 0));
         const direction = cfg.cornerTwistDirection || 'mixed';
 
-        if (!pre462TwistCODone) {
-            // Restrict twist candidates to the user's selection (primary stickers
-            // like 'UFL', 'UBR', …). Empty selection falls back to all non-buffer
-            // pieces — the React-side validator already requires selected ≥ N.
-            const twistTargetSet = new Set(cfg.cornerTwistTargets);
-            const eligibleCornerPieces = twistTargetSet.size > 0
-                ? cornerPieces.filter((i) => twistTargetSet.has(CORNERS[i][0]))
-                : cornerPieces;
-            const shuffledCornerPieces = shuffleArray([...eligibleCornerPieces]);
-            const twistedPieces = shuffledCornerPieces.slice(0, N);
+        // pickValidTwistCombo brute-forces every (twistedPieces, paritySticker)
+        // combination so the parity adjust always lands on a non-twisted
+        // piece. preChosenParityTarget is plumbed into the extras stage below
+        // — without it, picking twists greedily and then post-filtering
+        // cfg.parityTargets sometimes silently drops the parity (when every
+        // user-selected parity sticker happens to live on a twisted piece),
+        // leaving a stray UF↔UR Jb on the cube.
+        let preChosenParityTarget = null;
 
-            // Decide each twisted piece's orientation (1=CW or 2=CCW) per the
-            // direction setting:
-            //   - N=1: random.
-            //   - 'same' (N≥2): pick one direction at random; all pieces use it.
-            //   - 'mixed' (N≥2): pick 2 random pieces, force one CW and one CCW;
-            //     remaining pieces stay random.
-            const oris = new Array(N);
-            if (N === 1 || direction === 'same') {
-                const fixedOri = N === 1
-                    ? Math.floor(Math.random() * 2) + 1
-                    : Math.floor(Math.random() * 2) + 1;
-                for (let i = 0; i < N; i++) oris[i] = fixedOri;
-            } else {
-                // mixed
-                const indices = shuffleArray(Array.from({ length: N }, (_, i) => i));
-                const cwIdx = indices[0];
-                const ccwIdx = indices[1];
-                for (let i = 0; i < N; i++) {
-                    if (i === cwIdx) oris[i] = 1;
-                    else if (i === ccwIdx) oris[i] = 2;
-                    else oris[i] = Math.floor(Math.random() * 2) + 1;
-                }
+        if (!pre462TwistCODone) {
+            const combo = pickValidTwistCombo(cornerPieces, cfg, N, extraCount, direction);
+            if (!combo) {
+                alert("Error: No valid Twist combination possible with current selections. " +
+                      "Adjust twist targets, parity targets, or counts.");
+                return;
             }
+            const { twistedPieces, oris, paritySticker } = combo;
+            preChosenParityTarget = paritySticker;
             const twistTargets = twistedPieces.map((idx, i) => CORNERS[idx][oris[i]]);
             cornerPieces = cornerPieces.filter((idx) => !twistedPieces.includes(idx));
 
@@ -832,25 +893,18 @@ function generateScramble(options = {}) {
         }
 
         // Extras: cycle / leftover-target on the remaining (7 − N) non-buffer
-        // pool. When the count is odd, the chain has one "dangling parity"
-        // target — pick that one from the user's cfg.parityTargets selection
-        // (filtered to pieces still in the eligible pool). The remaining
-        // count-1 (now even) targets come from the random extras generator.
+        // pool. When extras is odd, the parity sticker decided by the brute
+        // force above leads off the chain; the remaining (count-1) (now even)
+        // targets come from the random extras generator.
         if (extraCount > 0) {
             let parityTarget = null;
             let workCornerPieces = cornerPieces;
             let workCount = extraCount;
-            if (extraCount % 2 === 1) {
-                const eligible = (cfg.parityTargets || []).filter((t) => {
-                    const idx = CORNERS.findIndex((p) => p.includes(t));
-                    return idx >= 0 && cornerPieces.includes(idx);
-                });
-                if (eligible.length > 0) {
-                    parityTarget = eligible[Math.floor(Math.random() * eligible.length)];
-                    const ptIdx = CORNERS.findIndex((p) => p.includes(parityTarget));
-                    workCornerPieces = cornerPieces.filter((idx) => idx !== ptIdx);
-                    workCount = extraCount - 1;
-                }
+            if (extraCount % 2 === 1 && preChosenParityTarget) {
+                parityTarget = preChosenParityTarget;
+                const ptIdx = CORNERS.findIndex((p) => p.includes(parityTarget));
+                workCornerPieces = cornerPieces.filter((idx) => idx !== ptIdx);
+                workCount = extraCount - 1;
             }
 
             const extras = generateTwistExtras(workCornerPieces, workCount);
@@ -966,30 +1020,30 @@ function generateScramble(options = {}) {
         cornerPieces = [];
     }
     else if (cornerScrambleType == "Random") {
-        // Generate random corner state
-        const randomCubeStr = generateRandomState("random", "solved");
+        // Generate random corner state. If the user pinned a parity, regenerate
+        // until the random pick matches instead of fixing it after the fact
+        // with a U quarter-turn — a U flips both corner AND edge parity, but
+        // it also literally rotates the four U-layer edges (UF→UL→UB→UR→UF),
+        // so any later Floating / Targets / Flips edge work would compose on
+        // top of that 4-cycle and stop being a clean cycle. Regeneration
+        // averages ~2 attempts (parity is 50/50 random) and keeps the edges
+        // in the clean state generateRandomState produces.
+        const want = cfg.cornerRandomParity === 'odd'
+            ? 1
+            : (cfg.cornerRandomParity === 'even' ? 0 : null);
+        let randomCubeStr = generateRandomState("random", "solved");
+        if (want !== null) {
+            for (let attempt = 0; attempt < 50; attempt++) {
+                if (Cube.fromString(randomCubeStr).cornerParity() === want) break;
+                randomCubeStr = generateRandomState("random", "solved");
+            }
+        }
         log("Random corners state: " + randomCubeStr);
         addDebugLine("Random corners state: " + randomCubeStr);
 
-        // Apply the random corner state to the cube
-        // We need to extract just the corner moves from this random state
         const randomCube = Cube.fromString(randomCubeStr);
         const solutionMoves = randomCube.solve();
-        // Apply the inverse to get from solved to the random state
         cube.move(invertMoves(solutionMoves));
-
-        // Parity fix: a U quarter-turn flips both corner and edge parity by 1
-        // simultaneously (preserves solvability). If the user pinned a parity
-        // and the generated state's corner parity doesn't match, prepend a U.
-        if (cfg.cornerRandomParity === 'even' || cfg.cornerRandomParity === 'odd') {
-            const want = cfg.cornerRandomParity === 'odd' ? 1 : 0;
-            const have = Cube.fromString(cube.asString()).cornerParity();
-            if (have !== want) {
-                _ctxLabel = "Random corner parity fix (want=" + cfg.cornerRandomParity + ")";
-                cube.move("U");
-                _ctxLabel = '';
-            }
-        }
 
         // Clear cornerPieces since we've handled all corners
         cornerPieces = [];
@@ -1542,67 +1596,67 @@ function generateScramble(options = {}) {
         edgePieces = [];
     }
     else if (edgeScrambleType == "Random") {
-        // Generate random edge state
-        // We need to account for corner parity - check current cube state
-        const currentCubeStr = cube.asString();
-        const currentCube = Cube.fromString(currentCubeStr);
-        const cornerParity = currentCube.cornerParity();
-
-        // Generate random edges with solved corners
-        const randomEdgeCubeStr = generateRandomState("solved", "random");
+        // Mirror the corner-Random rework: generate the random edge state on a
+        // shadow cube, then mask its edge facelets onto the working cube via
+        // a single solve-inverse alg. Avoids any post-hoc U turn on the
+        // working cube — a U here would flip BOTH corner and edge parity on
+        // the working cube, which disturbs whatever corner setup ran first
+        // (corner-layer pieces literally rotate, not just their parity).
+        //
+        // If the user pinned edgeRandomParity, regenerate the shadow until
+        // its edge parity matches. The shadow's edge parity is what the
+        // working cube ends up with — but only when cornerParity already
+        // equals the user's want. When they conflict, no facelet edit on
+        // edges can satisfy both pins simultaneously (the cube would be
+        // unsolvable), so we silently fall back to cornerParity for edges
+        // and preserve the corner setup intact. Surfacing that as a hard
+        // error would be friendlier; flagging here as best-effort to stay
+        // consistent with prior behaviour.
+        const want = cfg.edgeRandomParity === 'odd'
+            ? 1
+            : (cfg.edgeRandomParity === 'even' ? 0 : null);
+        let randomEdgeCubeStr = generateRandomState("solved", "random");
+        if (want !== null) {
+            for (let attempt = 0; attempt < 50; attempt++) {
+                if (Cube.fromString(randomEdgeCubeStr).edgeParity() === want) break;
+                randomEdgeCubeStr = generateRandomState("solved", "random");
+            }
+        }
         log("Random edges state: " + randomEdgeCubeStr);
         addDebugLine("Random edges state: " + randomEdgeCubeStr);
 
-        // Extract just the edge positions from the random cube and apply them
-        // We do this by: getting the random edge cube, then combining with current corners
-        let combinedCubeStr = currentCubeStr;
+        const currentCubeStr = cube.asString();
+        const cornerParity = Cube.fromString(currentCubeStr).cornerParity();
 
-        // Copy edge facelets from random edge cube to combined cube
+        // Mask: working corners + shadow edges.
+        let combinedCubeStr = currentCubeStr;
         for (const idx of ALL_EDGE_INDICES) {
             combinedCubeStr = setCharAt(combinedCubeStr, idx, randomEdgeCubeStr[idx]);
         }
 
-        // Check if the combined state is solvable (parities must match)
-        const combinedCube = Cube.fromString(combinedCubeStr);
-        const edgeParity = combinedCube.edgeParity();
-
+        // Solvability fix lives in the shadow string only — never on the
+        // working cube via a move.
+        const edgeParity = Cube.fromString(combinedCubeStr).edgeParity();
         if (cornerParity !== edgeParity) {
-            // Fix parity by swapping UF and UR edges
             let temp1 = combinedCubeStr[5];
             combinedCubeStr = setCharAt(combinedCubeStr, 5, combinedCubeStr[7]);
             combinedCubeStr = setCharAt(combinedCubeStr, 7, temp1);
             let temp2 = combinedCubeStr[10];
             combinedCubeStr = setCharAt(combinedCubeStr, 10, combinedCubeStr[19]);
             combinedCubeStr = setCharAt(combinedCubeStr, 19, temp2);
-            log("Random edges: Fixed parity by swapping UF/UR");
-            addDebugLine("Random edges: Fixed parity by swapping UF/UR");
+            log("Random edges: Fixed parity by swapping UF/UR (in shadow string)");
+            addDebugLine("Random edges: Fixed parity by swapping UF/UR (in shadow string)");
         }
 
         log("Random edges combined state: " + combinedCubeStr);
         addDebugLine("Random edges combined state: " + combinedCubeStr);
 
-        // Reset cube and apply the combined state
         cube.identity();
         const finalCube = Cube.fromString(combinedCubeStr);
         _ctxLabel = "Random edge state (solve-inverse)";
         cube.move(invertMoves(finalCube.solve()));
         _ctxLabel = '';
 
-        // Parity fix: corner/edge parities are now equal (the UF/UR swap
-        // above ensured solvability). If the user pinned a parity and the
-        // current value doesn't match, a U flips both back into the wanted
-        // configuration without breaking solvability.
-        if (cfg.edgeRandomParity === 'even' || cfg.edgeRandomParity === 'odd') {
-            const want = cfg.edgeRandomParity === 'odd' ? 1 : 0;
-            const have = Cube.fromString(cube.asString()).edgeParity();
-            if (have !== want) {
-                _ctxLabel = "Random edge parity fix (want=" + cfg.edgeRandomParity + ")";
-                cube.move("U");
-                _ctxLabel = '';
-            }
-        }
-
-        // Clear edgePieces since we've handled all edges
         edgePieces = [];
     }
 

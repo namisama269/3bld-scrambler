@@ -62,6 +62,27 @@ const colorScheme = {
     5: FACE_HEX.b, // B
 };
 
+// Logo variant uses the colorScheme captured in public/logo.params.json — its
+// face 0 (U) is yellow, face 3 (D) is white. So the cube's BASE orientation
+// in this scheme is "yb" (yellow top, blue front), not "wg". To reuse the
+// same ORIENTATION_MOVES table (which is defined relative to wg → user's
+// chosen orientation), prepend `x2` to the algorithm: x2 takes yb → wg, then
+// ORIENTATION_MOVES[key] takes wg → user's orientation, then the logo
+// scramble alg paints the W on whatever face is U at that point.
+const logoColorScheme = {
+    0: FACE_HEX.y, // U (yellow)
+    1: FACE_HEX.r, // R
+    2: FACE_HEX.b, // F (blue)
+    3: FACE_HEX.w, // D (white)
+    4: FACE_HEX.o, // L
+    5: FACE_HEX.g, // B (green)
+};
+// Drop the leading `y` from the original logo alg — it was a wg-specific
+// rotation baked into the static logo, but here ORIENTATION_MOVES[key]
+// already places the cube in the user's chosen orientation, so the `y`
+// over-rotates and twists the W off-axis.
+const LOGO_SCRAMBLE_ALG = "F2 D' F2 L2 U2 L2 U' R2 D' R2 B2 F2 U' L' U2 F D2 F R D' U R2";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_ROOT = path.resolve(__dirname, '..', 'public', 'orientations');
 
@@ -85,16 +106,24 @@ const OUT_ROOT = path.resolve(__dirname, '..', 'public', 'orientations');
 const baseOptions = {
     width: 64,
     height: 64,
-    colorScheme,
     cubeColor: '#000000',
     cubeOpacity: 100,
     stickerOpacity: 100,
     viewportRotations: [[1, 22], [0, -30], [2, 0]],
 };
 
+// Each variant defines its colorScheme and how the per-orientation algorithm
+// is composed. The 'logo' variant prepends `x2` because its colorScheme has
+// the cube's base in yb orientation, not wg — see comment near logoColorScheme.
 const VARIANTS = [
-    { name: '3x3', cubeSize: 3 },
-    { name: '1x1', cubeSize: 1 },
+    { name: '3x3', cubeSize: 3, colorScheme, makeAlg: (orientationAlg) => orientationAlg },
+    { name: '1x1', cubeSize: 1, colorScheme, makeAlg: (orientationAlg) => orientationAlg },
+    {
+        name: 'logo',
+        cubeSize: 3,
+        colorScheme: logoColorScheme,
+        makeAlg: (orientationAlg) => `x2 ${orientationAlg} ${LOGO_SCRAMBLE_ALG}`.trim(),
+    },
 ];
 
 let written = 0;
@@ -104,7 +133,12 @@ for (const variant of VARIANTS) {
     for (const [key, alg] of Object.entries(ORIENTATION_MOVES)) {
         const container = document.createElement('div');
         document.body.appendChild(container);
-        SRVisualizer.cubeSVG(container, { ...baseOptions, cubeSize: variant.cubeSize, algorithm: alg });
+        SRVisualizer.cubeSVG(container, {
+            ...baseOptions,
+            colorScheme: variant.colorScheme,
+            cubeSize: variant.cubeSize,
+            algorithm: variant.makeAlg(alg),
+        });
         const svg = container.querySelector('svg');
         if (!svg) {
             console.error(`No SVG produced for ${variant.name}/${key}`);

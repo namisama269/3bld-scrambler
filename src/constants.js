@@ -79,6 +79,74 @@ export const FACE_COLORS = {
     b: '#2055FF',
 };
 
+// Defaults for the user-editable per-face color scheme. Keyed by face letter
+// (U/R/F/B/L/D) so it slots straight into VisualCube.stickerColors. Values
+// must mirror the U/R/F/L/B/D constants in public/scramble/visualCube.js so
+// the React-side defaults render the same as the engine before any edits.
+export const DEFAULT_STICKER_COLORS = {
+    U: FACE_COLORS.w,
+    R: FACE_COLORS.r,
+    F: FACE_COLORS.g,
+    L: FACE_COLORS.o,
+    B: FACE_COLORS.b,
+    D: FACE_COLORS.y,
+};
+
+// Whole-cube rotation alg per holding orientation. Mirror of the table in
+// public/scramble/gen.js (loaded as a non-module global, not importable
+// from the React side). Keep these two copies in sync.
+export const ORIENTATION_MOVES = {
+    wg: '',     wr: 'y',     wb: 'y2',    wo: "y'",
+    yg: 'z2',   yr: 'x2 y',  yb: 'x2',    yo: "x2 y'",
+    ob: 'z y2', ow: 'z y',   oy: "z y'",  og: 'z',
+    rb: "z' y2", rw: "z' y'", ry: "z' y", rg: "z'",
+    go: "x y'", gy: 'x',     gw: 'x y2',  gr: 'x y',
+    bo: "x' y'", by: "x' y2", bw: "x'",   br: "x' y",
+};
+
+// Given an orientation key, return a map: cube-position-letter →
+// original-face-letter that's currently at that position after applying
+// ORIENTATION_MOVES[key] to a solved cube. Used by the color-scheme editor
+// so the U/R/F/B/L/D labels above the swatches always refer to "current top
+// / right / etc." in the held orientation, while the swatch *edits* the
+// underlying face that physically lives there.
+//
+// Cycle direction was verified by walking known orientations:
+//   wg → wr (y rotation): F should become red — matches y cycling
+//     F→L→B→R→F (color direction).
+//   wg → gy (x rotation): U should become green — matches x cycling
+//     U→B→D→F→U (color direction).
+//   wg → og (z rotation): U should become orange — matches z cycling
+//     U→R→D→L→U (color direction).
+export function faceAtPositionFor(orientationKey) {
+    const perm = { U: 'U', R: 'R', F: 'F', B: 'B', L: 'L', D: 'D' };
+    const alg = ORIENTATION_MOVES[orientationKey];
+    if (!alg) return perm;
+
+    // Color goes a→b means "the face originally at a is now at b position",
+    // i.e. perm[b] = oldPerm[a]. cycle4(a,b,c,d) does a→b→c→d→a.
+    const cycle4 = (a, b, c, d) => {
+        const oA = perm[a], oB = perm[b], oC = perm[c], oD = perm[d];
+        perm[b] = oA; perm[c] = oB; perm[d] = oC; perm[a] = oD;
+    };
+    const swap = (a, b) => { const t = perm[a]; perm[a] = perm[b]; perm[b] = t; };
+
+    for (const move of alg.trim().split(/\s+/)) {
+        switch (move) {
+            case 'x':  cycle4('U', 'B', 'D', 'F'); break;
+            case "x'": cycle4('U', 'F', 'D', 'B'); break;
+            case 'x2': swap('U', 'D'); swap('F', 'B'); break;
+            case 'y':  cycle4('F', 'L', 'B', 'R'); break;
+            case "y'": cycle4('F', 'R', 'B', 'L'); break;
+            case 'y2': swap('F', 'B'); swap('L', 'R'); break;
+            case 'z':  cycle4('U', 'R', 'D', 'L'); break;
+            case "z'": cycle4('U', 'L', 'D', 'R'); break;
+            case 'z2': swap('U', 'D'); swap('L', 'R'); break;
+        }
+    }
+    return perm;
+}
+
 export function orientationLabel(key) {
     return `${FACE_NAMES[key[0]]} / ${FACE_NAMES[key[1]]}`;
 }
