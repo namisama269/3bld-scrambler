@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useScrambleConfig } from '../state/ScrambleConfigContext.jsx';
 import { useLocalStorage } from '../hooks/useLocalStorage.js';
 import {
@@ -102,6 +102,8 @@ function enforceCornerBufferConstraint(order) {
 function BufferOrderList({ value, onChange, validate, highlightPieces }) {
     const [dragSrc, setDragSrc] = useState(null);
     const [dropHint, setDropHint] = useState({ piece: null, after: false });
+    const rowRef = useRef(null);
+    const dragState = useRef(null); // mutable drag session state
 
     const reorder = (src, target, dropAfter) => {
         if (!src || src === target) return;
@@ -110,13 +112,100 @@ function BufferOrderList({ value, onChange, validate, highlightPieces }) {
         if (idx < 0) return;
         if (dropAfter) idx += 1;
         next.splice(idx, 0, src);
-        if (validate && !validate(next)) return; // reject if constraint violated
+        if (validate && !validate(next)) return;
         onChange(next);
     };
 
+    // Find which chip the pointer is over and whether it's on the left or right half.
+    const hitTest = useCallback((clientX, clientY) => {
+        if (!rowRef.current) return null;
+        const chips = rowRef.current.querySelectorAll('[role="listitem"]');
+        for (const chip of chips) {
+            const r = chip.getBoundingClientRect();
+            if (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom) {
+                const piece = chip.dataset.piece;
+                const after = clientX - r.left > r.width / 2;
+                return { piece, after };
+            }
+        }
+        return null;
+    }, []);
+
+    const onPointerDown = useCallback((e, piece) => {
+        // Only primary button (mouse) or touch
+        if (e.button && e.button !== 0) return;
+        e.preventDefault();
+        // Capture on the row so pointermove/pointerup fire there during the drag.
+        if (rowRef.current) rowRef.current.setPointerCapture(e.pointerId);
+        dragState.current = {
+            piece,
+            pointerId: e.pointerId,
+            startX: e.clientX,
+            startY: e.clientY,
+            active: false, // becomes true after threshold
+        };
+    }, []);
+
+    const DRAG_THRESHOLD = 5; // px before drag activates
+
+    const onPointerMove = useCallback((e) => {
+        const ds = dragState.current;
+        if (!ds) return;
+        if (e.pointerId !== ds.pointerId) return;
+
+        if (!ds.active) {
+            const dx = e.clientX - ds.startX;
+            const dy = e.clientY - ds.startY;
+            if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+            ds.active = true;
+            setDragSrc(ds.piece);
+        }
+
+        const hit = hitTest(e.clientX, e.clientY);
+        if (hit && hit.piece !== ds.piece) {
+            setDropHint(hit);
+        } else {
+            setDropHint({ piece: null, after: false });
+        }
+    }, [hitTest]);
+
+    const onPointerUp = useCallback((e) => {
+        const ds = dragState.current;
+        if (!ds) return;
+        if (e.pointerId !== ds.pointerId) return;
+        dragState.current = null;
+
+        if (ds.active) {
+            const hit = hitTest(e.clientX, e.clientY);
+            if (hit && hit.piece !== ds.piece) {
+                reorder(ds.piece, hit.piece, hit.after);
+            }
+        }
+        setDragSrc(null);
+        setDropHint({ piece: null, after: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hitTest, value, validate, onChange]);
+
+    // Attach move/up listeners on the row so they work even when pointer leaves the source chip.
+    useEffect(() => {
+        const row = rowRef.current;
+        if (!row) return;
+        // Use native listeners for pointer events on the container
+        const move = (e) => onPointerMove(e);
+        const up = (e) => onPointerUp(e);
+        row.addEventListener('pointermove', move);
+        row.addEventListener('pointerup', up);
+        row.addEventListener('pointercancel', up);
+        return () => {
+            row.removeEventListener('pointermove', move);
+            row.removeEventListener('pointerup', up);
+            row.removeEventListener('pointercancel', up);
+        };
+    }, [onPointerMove, onPointerUp]);
+
     return (
-        <div className="chip-row" role="list">
-            {value.map((piece, idx) => {
+        <div className="chip-row" role="list" ref={rowRef} style={{ touchAction: 'none' }}>
+            {value.map((piece) => {
                 const isActive = highlightPieces ? highlightPieces.includes(piece) : false;
                 const isDragging = dragSrc === piece;
                 const showHintBefore = dropHint.piece === piece && !dropHint.after;
@@ -133,34 +222,9 @@ function BufferOrderList({ value, onChange, validate, highlightPieces }) {
                     <span
                         key={piece}
                         role="listitem"
+                        data-piece={piece}
                         className={cls}
-                        draggable
-                        onDragStart={(e) => {
-                            setDragSrc(piece);
-                            e.dataTransfer.effectAllowed = 'move';
-                            try { e.dataTransfer.setData('text/plain', piece); } catch (_) { /* IE */ }
-                        }}
-                        onDragOver={(e) => {
-                            e.preventDefault();
-                            if (!dragSrc || dragSrc === piece) return;
-                            const r = e.currentTarget.getBoundingClientRect();
-                            const after = e.clientX - r.left > r.width / 2;
-                            setDropHint({ piece, after });
-                        }}
-                        onDragLeave={() => {
-                            setDropHint((d) => (d.piece === piece ? { piece: null, after: false } : d));
-                        }}
-                        onDrop={(e) => {
-                            e.preventDefault();
-                            const r = e.currentTarget.getBoundingClientRect();
-                            const after = e.clientX - r.left > r.width / 2;
-                            reorder(dragSrc, piece, after);
-                            setDropHint({ piece: null, after: false });
-                        }}
-                        onDragEnd={() => {
-                            setDragSrc(null);
-                            setDropHint({ piece: null, after: false });
-                        }}
+                        onPointerDown={(e) => onPointerDown(e, piece)}
                     >
                         {piece}
                     </span>

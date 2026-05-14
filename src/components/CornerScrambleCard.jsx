@@ -8,6 +8,7 @@ import {
     orderTargets,
 } from '../constants.js';
 import MultiselectCard from './MultiselectCard.jsx';
+import PresetToolbar from './PresetToolbar.jsx';
 import { useLocalStorage } from '../hooks/useLocalStorage.js';
 
 function TwistControls({ twistCount, extraCount, direction, onTwistCount, onExtraCount, onDirection }) {
@@ -34,6 +35,7 @@ function TwistControls({ twistCount, extraCount, direction, onTwistCount, onExtr
                         value={direction}
                         onChange={onDirection}
                         options={[
+                            { value: 'random', label: 'Random' },
                             { value: 'same', label: 'Same' },
                             { value: 'mixed', label: 'Mixed' },
                         ]}
@@ -96,6 +98,7 @@ export default function CornerScrambleCard() {
         <div className="card">
             <div className="card-header">
                 <span className="card-title">Corner scramble</span>
+                <PresetToolbar side="corner" />
             </div>
             <div className="card-body">
                 <div className="row">
@@ -242,6 +245,19 @@ export default function CornerScrambleCard() {
                                         />
                                         <span className="toggle-switch"></span>
                                     </label>
+                                </div>
+                            )}
+                            {showTargetCount && N % 2 === 1 && (
+                                <div className="row">
+                                    <span className="row-label">Parity swap</span>
+                                    <Segmented
+                                        value={config.floatingCornerParitySwap || 'corner'}
+                                        onChange={updateField('floatingCornerParitySwap')}
+                                        options={[
+                                            { value: 'edge', label: 'Edge (UF/UR)' },
+                                            { value: 'corner', label: 'Corner (UFR/UBR)' },
+                                        ]}
+                                    />
                                 </div>
                             )}
                         </>

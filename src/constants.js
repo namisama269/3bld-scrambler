@@ -45,8 +45,8 @@ export const EDGE_WEIGHTS = [440, 360, 288, 224, 168, 120, 80, 48, 24, 8];
 export const CORNER_WEIGHTS = [378, 270, 180, 108, 54, 18];
 export const F2E_FIRST_PIECES = ['UB', 'UL', 'FR', 'FL', 'DF', 'DR', 'DL', 'DB', 'BR', 'BL'];
 
-export const CORNER_SCRAMBLE_TYPES = ['Solved', 'Random', 'Targets', 'Floating', 'Twist', '2-Swap'];
-export const EDGE_SCRAMBLE_TYPES = ['Solved', 'Random', 'Targets', 'Floating', 'Flips', '2-Swap'];
+export const CORNER_SCRAMBLE_TYPES = ['Solved', 'Random', 'Targets', 'Twist', '2-Swap', 'Floating'];
+export const EDGE_SCRAMBLE_TYPES = ['Solved', 'Random', 'Targets', 'Flips', '2-Swap', 'Floating'];
 
 // Holding orientation options (key letters → top, front face). Keep keys
 // aligned with ORIENTATION_OPTIONS in the scramble engine so

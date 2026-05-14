@@ -65,6 +65,20 @@ export function validateScrambleConfig(config) {
         }
     }
 
+    if (config.cornerScrambleType === 'Targets' && (config.cornerTargetCount ?? 0) % 2 === 1) {
+        const selected = (config.parityTargets || []).length;
+        if (selected === 0) {
+            return 'Corner Targets with odd count requires at least one parity target to be selected.';
+        }
+    }
+
+    if (config.edgeScrambleType === 'Targets' && (config.edgeTargetCount ?? 0) % 2 === 1) {
+        const selected = (config.edgeParityTargets || []).length;
+        if (selected === 0) {
+            return 'Edge Targets with odd count requires at least one parity target to be selected.';
+        }
+    }
+
     if (config.cornerScrambleType === 'Floating') {
         const floatingPool = config.cornerBufferOrder.slice(1, -2);
         const valid = (config.floatingCornerBuffers || []).filter((p) => floatingPool.includes(p));

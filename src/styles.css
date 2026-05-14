@@ -268,6 +268,14 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
     color: var(--text);
     letter-spacing: -0.005em;
 }
+.preset-error {
+    font-size: 11px;
+    color: var(--danger);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
 
 .card-body {
     padding: 14px;
@@ -542,12 +550,10 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .chip.drop-before { box-shadow: -4px 0 0 0 #b566d2; }
 .chip.drop-after  { box-shadow:  4px 0 0 0 #b566d2; }
 
-/* Touch devices: bump the chip and chip-row to give meaningful drag targets
-   on mobile. Native HTML5 drag is finicky on touch — bigger hit area at
-   least makes the gesture less prone to misfire. */
+/* Touch devices: 44px minimum touch target for comfortable dragging. */
 @media (pointer: coarse) {
-    .chip { padding: 9px 14px; font-size: 14px; }
-    .chip-row { gap: 8px; padding: 8px; min-height: 48px; }
+    .chip { padding: 11px 14px; font-size: 14px; min-height: 44px; }
+    .chip-row { gap: 8px; padding: 8px; min-height: 52px; }
 }
 
 /* ---------- Checkbox grid ---------- */

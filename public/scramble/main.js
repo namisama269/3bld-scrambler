@@ -5,6 +5,7 @@ let vc = null;
 let ctx = null;
 let canvas = null;
 let holdingOrientationKey = 'wg';
+let lastScramble = '';
 let debugString = '';
 
 function ensureInit() {
@@ -31,6 +32,7 @@ window.setHoldingOrientation = function (key) {
     if (cube && vc && ctx) {
         cube.identity();
         cube.move(getOrientationMoves());
+        if (lastScramble) cube.move(lastScramble);
         vc.cubeString = cube.asString();
         vc.drawCube(ctx);
     }
@@ -111,6 +113,8 @@ function buildScrambleConfig(options) {
         floatingCornerBuffers: c.floatingCornerBuffers || [],
         floatingCornerDistribution: c.floatingCornerDistribution || 'equal',
         floatingCornerAddTwist: !!c.floatingCornerAddTwist,
+        floatingParitySwap: c.floatingParitySwap || 'edge',
+        floatingCornerParitySwap: c.floatingCornerParitySwap || 'corner',
         cornerBufferOrder: c.cornerBufferOrder || ['UFR', 'UFL', 'UBR', 'UBL', 'DFR', 'DFL', 'DBR', 'DBL'],
         edgeBufferOrder: c.edgeBufferOrder || ['UF', 'UR', 'UB', 'UL', 'FR', 'FL', 'DF', 'DB', 'DR', 'DL'],
     };
@@ -213,7 +217,11 @@ function pickValidTwistCombo(availablePieces, cfg, N, extraCount, direction) {
     if (N === 1 || direction === 'same') {
         const fixedOri = Math.floor(Math.random() * 2) + 1;
         for (let i = 0; i < N; i++) oris[i] = fixedOri;
+    } else if (direction === 'random') {
+        // Each twist independently random — no guarantee of mixing.
+        for (let i = 0; i < N; i++) oris[i] = Math.floor(Math.random() * 2) + 1;
     } else {
+        // 'mixed': guarantee at least one CW and one CCW.
         const indices = shuffleArray(Array.from({ length: N }, (_, i) => i));
         const cwIdx = indices[0];
         const ccwIdx = indices[1];
@@ -336,6 +344,12 @@ function generateScramble(options = {}) {
     addDebugLine("Corner scramble type: " + cornerScrambleType);
     log("Edge scramble type: " + edgeScrambleType);
     addDebugLine("Edge scramble type: " + edgeScrambleType);
+    if (cornerScrambleType === 'Floating') {
+        addDebugLine("Corner parity swap: " + cfg.floatingCornerParitySwap);
+    }
+    if (edgeScrambleType === 'Floating') {
+        addDebugLine("Edge parity swap: " + cfg.floatingParitySwap);
+    }
 
     // Tracks the edge target chosen by the edge Parity branch, used to apply a
     // double-Parity correction alg at the end if both corner and edge are Parity.
@@ -840,6 +854,16 @@ function generateScramble(options = {}) {
             cube.move(generateParityAlg("UF", "UR", "UFR", target));
         });
         _ctxLabel = '';
+
+        // Corner floating odd: the chain leaves a stray UF↔UR on edges.
+        // If user chose 'corner', apply Jb to move the swap to UFR↔UBR.
+        if (cornerFloatingOddParity && (cfg.floatingCornerParitySwap || 'corner') === 'corner') {
+            _ctxLabel = "Corner Floating parity swap correction";
+            cube.move(Jb_PERM);
+            _ctxLabel = '';
+            log("Corner Floating: applied Jb (parity swap → corner)");
+            addDebugLine("Corner Floating: applied Jb (parity swap → corner)");
+        }
 
         cornerPieces = [];
     }
@@ -1513,6 +1537,16 @@ function generateScramble(options = {}) {
         });
         _ctxLabel = '';
 
+        // Edge floating odd: the chain leaves a stray UFR↔UBR on corners.
+        // If user chose 'edge', apply Jb to move the swap to UF↔UR.
+        if (edgeFloatingOddParity && (cfg.floatingParitySwap || 'edge') === 'edge') {
+            _ctxLabel = "Edge Floating parity swap correction";
+            cube.move(Jb_PERM);
+            _ctxLabel = '';
+            log("Edge Floating: applied Jb (parity swap → edge)");
+            addDebugLine("Edge Floating: applied Jb (parity swap → edge)");
+        }
+
         edgePieces = [];
     }
     else if (edgeScrambleType == "2-Swap") {
@@ -1710,23 +1744,9 @@ function generateScramble(options = {}) {
         }
     }
 
-    // Floating odd-edge parity correction: an odd-length edge Floating chain
-    // leaks a stray UFR↔UBR swap onto corners (because each Jb in the chain
-    // also touches UFR↔UBR, and odd-many of them don't cancel). The user's
-    // preferred convention: that leftover should land on the edge buffer pair
-    // (UF↔UR), not on corners. Append a Jb here — its UFR↔UBR cancels the
-    // chain's stray, and its UF↔UR becomes the new visible leftover on edges.
-    //
-    // This same Jb also doubles as the both-Floating-odd correction: when the
-    // corner Floating chain is also odd, it leaked a UF↔UR swap onto edges,
-    // which the appended Jb's UF↔UR cancels — both sides come out clean.
-    if (edgeFloatingOddParity) {
-        _ctxLabel = "Floating odd-edge parity correction";
-        cube.move(Jb_PERM);
-        _ctxLabel = '';
-        log("Floating odd-edge parity correction: applied Jb perm");
-        addDebugLine("Floating odd-edge parity correction: applied Jb perm");
-    }
+    // Floating odd-parity corrections are now applied inline, right after
+    // each Floating chain (see Corner Floating and Edge Floating branches
+    // above), based on the user's "Parity swap" toggle.
 
     // get the scramble and do in correct orientation
     scramble = invertMoves(cube.solve());
@@ -1758,6 +1778,8 @@ function generateScramble(options = {}) {
     cube.identity();
     cube.move(getOrientationMoves());
     cube.move(scramble);
+
+    lastScramble = scramble;
 
     if (!silent) {
         log("Scramble: " + scramble);

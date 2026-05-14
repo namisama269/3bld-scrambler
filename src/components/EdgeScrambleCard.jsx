@@ -9,6 +9,7 @@ import {
     orderTargets,
 } from '../constants.js';
 import MultiselectCard from './MultiselectCard.jsx';
+import PresetToolbar from './PresetToolbar.jsx';
 import { useLocalStorage } from '../hooks/useLocalStorage.js';
 
 function FlipExtras({ flipCustomCount, flipExtraCount, onChange }) {
@@ -80,6 +81,7 @@ export default function EdgeScrambleCard() {
         <div className="card">
             <div className="card-header">
                 <span className="card-title">Edge scramble</span>
+                <PresetToolbar side="edge" />
             </div>
             <div className="card-body">
                 <div className="row">
@@ -231,6 +233,19 @@ export default function EdgeScrambleCard() {
                                         />
                                         <span className="toggle-switch"></span>
                                     </label>
+                                </div>
+                            )}
+                            {showTargetCount && N % 2 === 1 && (
+                                <div className="row">
+                                    <span className="row-label">Parity swap</span>
+                                    <Segmented
+                                        value={config.floatingParitySwap || 'edge'}
+                                        onChange={updateField('floatingParitySwap')}
+                                        options={[
+                                            { value: 'edge', label: 'Edge (UF/UR)' },
+                                            { value: 'corner', label: 'Corner (UFR/UBR)' },
+                                        ]}
+                                    />
                                 </div>
                             )}
                         </>

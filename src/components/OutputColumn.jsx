@@ -2,6 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useScrambleConfig, toEngineConfig } from '../state/ScrambleConfigContext.jsx';
 import { useScrambleOutput } from '../state/ScrambleOutputContext.jsx';
 import { validateScrambleConfig } from '../state/validateScrambleConfig.js';
+import {
+    useBldHelperConfig,
+    getBldSets,
+    CORNER_NAMES,
+    EDGE_NAMES,
+} from '../state/BldHelperConfigContext.jsx';
+import BulkModal from './bldHelper/BulkModal.jsx';
+import CstimerPreviewModal from './bldHelper/CstimerPreviewModal.jsx';
 import Alert from './Alert.jsx';
 
 // Pretty-print like JSON.stringify(value, null, 2), but inline arrays whose
@@ -26,12 +34,39 @@ function formatTracingJson(value, indent = 0) {
     return JSON.stringify(value);
 }
 
+function formatProb(p) {
+    return p < 1e-3 ? p.toExponential(3) : `${Math.round(p * 1000000) / 10000}%`;
+}
+
+function formatCases(n) {
+    return n > 1e8 ? n.toExponential(3) : String(n);
+}
+
+function renderCubeFromScramble(scrambleStr) {
+    if (typeof window.cubeutil?.getScrambledState !== 'function') return;
+    if (typeof window.renderFaceletString !== 'function') return;
+    try {
+        const facelet = window.cubeutil.getScrambledState(['333', scrambleStr], true);
+        window.renderFaceletString(facelet);
+    } catch (e) {
+        console.warn('Failed to render BLD Helper cube:', e);
+    }
+}
+
 export default function OutputColumn({ activeTab }) {
     const canvasRef = useRef(null);
     const cancelBulkRef = useRef(false);
     const { config, updateField } = useScrambleConfig();
     const out = useScrambleOutput();
     const [bulkProgress, setBulkProgress] = useState(null);
+
+    // BLD Helper state
+    const { config: bldConfig, updateField: updateBldField, reset: resetBld } = useBldHelperConfig();
+    const [bldLastResult, setBldLastResult] = useState(null);
+    const [bldBulkOpen, setBldBulkOpen] = useState(false);
+    const [bldBulkScrambles, setBldBulkScrambles] = useState([]);
+    const [bldBulkProgress, setBldBulkProgress] = useState(null);
+    const [bldPreviewOpen, setBldPreviewOpen] = useState(false);
 
     // Bind the scramble engine to the currently mounted canvas. React StrictMode
     // remounts components in dev — re-init each mount so vc/ctx stay pointed at
@@ -144,6 +179,60 @@ export default function OutputColumn({ activeTab }) {
         out.setDebugText(engineDebug + dlinSection);
     };
 
+    // --- BLD Helper generate functions ---
+    const bldGenerateOnce = () => {
+        if (typeof window.getBLDInfo !== 'function') {
+            throw new Error('BLD Helper engine not loaded (getBLDInfo missing).');
+        }
+        const cbuffPiece = Math.max(0, CORNER_NAMES.indexOf(config.cornerBufferOrder[0]));
+        const ebuffPiece = Math.max(0, EDGE_NAMES.indexOf(config.edgeBufferOrder[0]));
+        const merged = {
+            ...bldConfig,
+            cbuffPiece,
+            ebuffPiece,
+            bldOrientation: config.holdingOrientation,
+        };
+        return window.getBLDInfo(getBldSets(merged));
+    };
+
+    const onBldGenerate = () => {
+        try {
+            out.clear();
+            const result = bldGenerateOnce();
+            setBldLastResult(result);
+            const text = `Scramble: ${result.scramble}\n\n${result.code}\n\nProbability: ${formatProb(result.prob)}\nTotal Cases: ${formatCases(result.caseNum)}`;
+            out.setScrambleText(text);
+            renderCubeFromScramble(result.scramble);
+        } catch (e) {
+            out.setError(e.message);
+        }
+    };
+
+    const onBldBulk = () => {
+        const count = Math.max(1, parseInt(bldConfig.bulkCount) || 1);
+        setBldBulkScrambles([]);
+        setBldBulkProgress({ done: 0, total: count });
+        setBldBulkOpen(true);
+
+        const next = (i, acc) => {
+            if (i >= count) {
+                setBldBulkScrambles(acc);
+                setBldBulkProgress(null);
+                return;
+            }
+            try {
+                const result = bldGenerateOnce();
+                acc = [...acc, { scramble: result.scramble }];
+            } catch (e) {
+                acc = [...acc, { error: e.message }];
+            }
+            setBldBulkScrambles(acc);
+            setBldBulkProgress({ done: i + 1, total: count });
+            setTimeout(() => next(i + 1, acc), 0);
+        };
+        setTimeout(() => next(0, []), 50);
+    };
+
     // Spacebar shortcut on the Scrambler tab only.
     useEffect(() => {
         const onKey = (e) => {
@@ -186,6 +275,30 @@ export default function OutputColumn({ activeTab }) {
                     </div>
                     <span className="action-spacer" />
                     <button type="button" className="btn" onClick={onDebug}>Debug</button>
+                </div>
+            )}
+
+            {activeTab === 'bldHelper' && (
+                <div className="action-row">
+                    <button type="button" className="btn btn-primary" onClick={onBldGenerate}>
+                        Generate scramble
+                    </button>
+                    <div className="bulk-group">
+                        <button type="button" className="btn bulk-btn" onClick={onBldBulk}>Generate bulk:</button>
+                        <input
+                            className="input input-num bulk-count"
+                            type="number"
+                            min="1"
+                            aria-label="Bulk count"
+                            title="Bulk count"
+                            value={bldConfig.bulkCount}
+                            onChange={(e) =>
+                                updateBldField('bulkCount')(Math.max(1, parseInt(e.target.value) || 1))
+                            }
+                        />
+                    </div>
+                    <span className="action-spacer" />
+                    <button type="button" className="btn btn-ghost" onClick={() => setBldPreviewOpen(true)}>Preview in csTimer</button>
                 </div>
             )}
 
@@ -240,6 +353,22 @@ export default function OutputColumn({ activeTab }) {
             </div>
 
             {out.debugText ? <Alert severity="debug">{out.debugText}</Alert> : null}
+
+            {activeTab === 'bldHelper' && (
+                <>
+                    <BulkModal
+                        open={bldBulkOpen}
+                        scrambles={bldBulkScrambles}
+                        progress={bldBulkProgress}
+                        onClose={() => setBldBulkOpen(false)}
+                    />
+                    <CstimerPreviewModal
+                        open={bldPreviewOpen}
+                        onClose={() => setBldPreviewOpen(false)}
+                        lastResult={bldLastResult}
+                    />
+                </>
+            )}
         </div>
     );
 }

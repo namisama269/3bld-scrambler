@@ -25,11 +25,10 @@ export default function MultiselectCard({ title, allPieces, value, onChange }) {
 
     return (
         <div>
-            <div className="row-flex" style={{ marginBottom: 6 }}>
+            <div className="row-flex" style={{ marginBottom: 8 }}>
                 <span className="row-label" style={{ marginBottom: 0 }}>{title}</span>
                 <span className={pillClass}>{safeValue.length} / {allPieces.length}</span>
-            </div>
-            <div className="action-row" style={{ marginBottom: 8 }}>
+                <span style={{ flex: 1 }} />
                 <button type="button" className="btn btn-sm" onClick={() => commit([...allPieces])}>Select all</button>
                 <button type="button" className="btn btn-sm" onClick={() => commit([])}>Unselect all</button>
             </div>

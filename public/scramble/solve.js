@@ -444,8 +444,8 @@ THE SOFTWARE.
       return this;
     };
   
-    // Phase 1: All moves are valid
-    allMoves1 = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
+    // Phase 1: All moves except L (indices 12, 13, 14)
+    allMoves1 = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 16, 17];
   
     // The list of next valid phase 1 moves when the given face was turned
     // in the last move
@@ -458,6 +458,7 @@ THE SOFTWARE.
   // opposite faces are always moved in the same order, i.e. allow
   // U D but no D U. This avoids sequences like U D U'.
         for (face = o = 0; o <= 5; face = ++o) {
+          if (face === 4) continue; // Skip L face
           if (face !== lastFace && face !== lastFace - 3) {
   // single, double or inverse move
             for (power = p = 0; p <= 2; power = ++p) {
@@ -470,8 +471,8 @@ THE SOFTWARE.
       return results;
     })();
   
-    // Phase 2: Double moves of all faces plus quarter moves of U and D
-    allMoves2 = [0, 1, 2, 4, 7, 9, 10, 11, 13, 16];
+    // Phase 2: Double moves of all faces plus quarter moves of U and D, minus L2
+    allMoves2 = [0, 1, 2, 4, 7, 9, 10, 11, 16];
   
     nextMoves2 = (function() {
       var face, lastFace, len, m, next, o, p, power, powers, results;
@@ -479,6 +480,7 @@ THE SOFTWARE.
       for (lastFace = m = 0; m <= 5; lastFace = ++m) {
         next = [];
         for (face = o = 0; o <= 5; face = ++o) {
+          if (face === 4) continue; // Skip L face
           if (!(face !== lastFace && face !== lastFace - 3)) {
             continue;
           }
@@ -683,7 +685,7 @@ THE SOFTWARE.
       return Cube.computePruningTables();
     };
   
-    Cube.prototype.solveUpright = function(maxDepth = 22) {
+    Cube.prototype.solveUpright = function(maxDepth = 30) {
       var State, freeStates, moveNames, phase1, phase1search, phase2, phase2search, solution, state, x;
       // Names for all moves, i.e. U, U2, U', F, F2, ...
       moveNames = (function() {
@@ -950,7 +952,7 @@ THE SOFTWARE.
       5: 'B'
     };
   
-    Cube.prototype.solve = function(maxDepth = 22) {
+    Cube.prototype.solve = function(maxDepth = 30) {
       var clone, len, m, move, ref, rotation, solution, upright, uprightSolution;
       clone = this.clone();
       upright = clone.upright();

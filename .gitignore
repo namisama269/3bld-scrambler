@@ -6,3 +6,4 @@ CLAUDE.local.md
 dist/
 __pycache__/
 *.pyc
+solver-bench/
