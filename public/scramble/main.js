@@ -60,6 +60,18 @@ window.renderFaceletString = function (facelet) {
     vc.drawCube(ctx);
 };
 
+// Render a scramble on the main cube with the current BLD orientation.
+// Used by BLD Helper to reuse our cube + VisualCube instead of cubeutil.
+window.renderScrambleOnCube = function (scrambleStr) {
+    if (!cube || !vc || !ctx) return;
+    cube.identity();
+    cube.move(getOrientationMoves());
+    cube.move(scrambleStr);
+    lastScramble = scrambleStr;
+    vc.cubeString = cube.asString();
+    vc.drawCube(ctx);
+};
+
 // Cube string format: 54 chars — U(0-8) R(9-17) F(18-26) D(27-35) L(36-44) B(45-53).
 // UF edge stickers: indices 7 (U face) + 19 (F face).
 // UR edge stickers: indices 5 (U face) + 10 (R face).
@@ -73,6 +85,7 @@ function isParityEdgeSolved(cubeStr, edgeBuffer) {
 function getOrientationMoves() {
     return ORIENTATION_MOVES[holdingOrientationKey] || '';
 }
+window.getOrientationMoves = getOrientationMoves;
 
 function buildScrambleConfig(options) {
     const c = options.config || {};
@@ -214,7 +227,12 @@ function pickValidTwistCombo(availablePieces, cfg, N, extraCount, direction) {
     const chosen = validCombos[Math.floor(Math.random() * validCombos.length)];
 
     const oris = new Array(N);
-    if (N === 1 || direction === 'same') {
+    if (direction === 'cw') {
+        for (let i = 0; i < N; i++) oris[i] = 1;
+    } else if (direction === 'ccw') {
+        for (let i = 0; i < N; i++) oris[i] = 2;
+    } else if (N === 1 || direction === 'same') {
+        // 'same' is a legacy value — pick CW or CCW randomly, all the same
         const fixedOri = Math.floor(Math.random() * 2) + 1;
         for (let i = 0; i < N; i++) oris[i] = fixedOri;
     } else if (direction === 'random') {

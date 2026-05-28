@@ -38,6 +38,8 @@ function TwistControls({ twistCount, extraCount, direction, onTwistCount, onExtr
                             { value: 'random', label: 'Random' },
                             { value: 'same', label: 'Same' },
                             { value: 'mixed', label: 'Mixed' },
+                            { value: 'cw', label: 'CW' },
+                            { value: 'ccw', label: 'CCW' },
                         ]}
                     />
                 </div>

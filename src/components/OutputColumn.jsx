@@ -34,22 +34,9 @@ function formatTracingJson(value, indent = 0) {
     return JSON.stringify(value);
 }
 
-function formatProb(p) {
-    return p < 1e-3 ? p.toExponential(3) : `${Math.round(p * 1000000) / 10000}%`;
-}
-
-function formatCases(n) {
-    return n > 1e8 ? n.toExponential(3) : String(n);
-}
-
 function renderCubeFromScramble(scrambleStr) {
-    if (typeof window.cubeutil?.getScrambledState !== 'function') return;
-    if (typeof window.renderFaceletString !== 'function') return;
-    try {
-        const facelet = window.cubeutil.getScrambledState(['333', scrambleStr], true);
-        window.renderFaceletString(facelet);
-    } catch (e) {
-        console.warn('Failed to render BLD Helper cube:', e);
+    if (typeof window.renderScrambleOnCube === 'function') {
+        window.renderScrambleOnCube(scrambleStr);
     }
 }
 
@@ -200,7 +187,7 @@ export default function OutputColumn({ activeTab }) {
             out.clear();
             const result = bldGenerateOnce();
             setBldLastResult(result);
-            const text = `Scramble: ${result.scramble}\n\n${result.code}\n\nProbability: ${formatProb(result.prob)}\nTotal Cases: ${formatCases(result.caseNum)}`;
+            const text = result.scramble;
             out.setScrambleText(text);
             renderCubeFromScramble(result.scramble);
         } catch (e) {

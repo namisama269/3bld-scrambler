@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useScrambleConfig } from '../state/ScrambleConfigContext.jsx';
+import { useBldHelperConfig } from '../state/BldHelperConfigContext.jsx';
 import { useLocalStorage } from '../hooks/useLocalStorage.js';
 import {
     DEFAULT_CORNER_BUFFER_ORDER,
@@ -241,6 +242,7 @@ const ORIENTATION_ICON_VARIANT = '3x3';
 
 export default function BufferOrderCard({ activeTab, setActiveTab }) {
     const { config, updateField } = useScrambleConfig();
+    const { config: bldConfig, updateField: updateBldField } = useBldHelperConfig();
     const safeCornerOrder = enforceCornerBufferConstraint(
         reconcileOrder(config.cornerBufferOrder, DEFAULT_CORNER_BUFFER_ORDER),
     );
@@ -341,6 +343,35 @@ export default function BufferOrderCard({ activeTab, setActiveTab }) {
                         <span className="toggle-switch"></span>
                     </label>
                 </div>
+                {activeTab === 'bldHelper' && (
+                    <>
+                        <div className="row">
+                            <label className="row-label" htmlFor="ceparity">Parity</label>
+                            <select
+                                id="ceparity"
+                                className="select"
+                                value={bldConfig.ceparity}
+                                onChange={(e) => updateBldField('ceparity')(Number(e.target.value))}
+                            >
+                                <option value={1}>Even</option>
+                                <option value={2}>Odd</option>
+                                <option value={3}>Any</option>
+                            </select>
+                        </div>
+                        <div className="row">
+                            <label className="row-label" htmlFor="ceori">Scramble orientation</label>
+                            <select
+                                id="ceori"
+                                className="select"
+                                value={bldConfig.ceori ? 1 : 0}
+                                onChange={(e) => updateBldField('ceori')(Number(e.target.value) === 1)}
+                            >
+                                <option value={0}>Fixed</option>
+                                <option value={1}>Random</option>
+                            </select>
+                        </div>
+                    </>
+                )}
                 {SHOW_COLOR_SCHEME_EDITOR && <div className="row-stack-2col">
                     <div className="row-label">Color scheme</div>
                     <div className="color-scheme-row">

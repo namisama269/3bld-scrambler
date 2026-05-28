@@ -519,6 +519,14 @@ function getBLDInfo(bldSets){
 	return res;
 }
 
+function getBLDStats(bldSets){
+	var helper = new bldhelper();
+	var res = helper.genBLDRndState(bldSets, false);
+	var caseNum = res[0];
+	var prob = caseNum / 43252003274489856000;
+	return { prob: prob, caseNum: caseNum };
+}
+
 if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
 	module.exports = { getBLDInfo };
 }
